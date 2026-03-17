@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
 using Backend.Data;
 using Backend.DTOs;
 using Backend.Models;
@@ -12,7 +13,7 @@ namespace Backend.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
-public class AuthController(AppDbContext db, JwtService jwt) : ControllerBase
+public class AuthController(AppDbContext db, JwtService jwt, IHttpClientFactory httpClientFactory) : ControllerBase
 {
     private Guid CurrentUserId => Guid.Parse(
         User.FindFirstValue(JwtRegisteredClaimNames.Sub)
@@ -112,5 +113,51 @@ public class AuthController(AppDbContext db, JwtService jwt) : ControllerBase
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpPost("google")]
+    public async Task<IActionResult> GoogleAuth(GoogleAuthRequest req)
+    {
+        // Verify the Google ID token via Google's tokeninfo endpoint
+        var client = httpClientFactory.CreateClient();
+        var resp = await client.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={req.IdToken}");
+        if (!resp.IsSuccessStatusCode)
+            return Unauthorized(new { error = "Invalid Google token" });
+
+        var json = await resp.Content.ReadAsStringAsync();
+        var payload = JsonSerializer.Deserialize<JsonElement>(json);
+
+        var googleId = payload.GetProperty("sub").GetString()!;
+        var email    = payload.GetProperty("email").GetString()!.ToLower();
+        var given    = payload.TryGetProperty("given_name", out var gn) ? gn.GetString() ?? "" : "";
+        var family   = payload.TryGetProperty("family_name", out var fn) ? fn.GetString() ?? "" : "";
+
+        // Find existing user by GoogleId or email
+        var user = await db.Users.FirstOrDefaultAsync(u => u.GoogleId == googleId || u.Email == email);
+        if (user == null)
+        {
+            user = new AppUser
+            {
+                Email = email,
+                FirstName = given,
+                LastName = family,
+                GoogleId = googleId,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()) // unusable random password
+            };
+            db.Users.Add(user);
+        }
+        else
+        {
+            // Link GoogleId if signing in via email match
+            if (user.GoogleId == null) user.GoogleId = googleId;
+        }
+
+        var accessToken  = jwt.GenerateAccessToken(user);
+        var refreshToken = jwt.GenerateRefreshToken();
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+        await db.SaveChangesAsync();
+
+        return Ok(new AuthResponse(accessToken, refreshToken, DateTime.UtcNow.AddHours(1).ToString("o"), user.Role, user.Id.ToString()));
     }
 }

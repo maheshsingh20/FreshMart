@@ -1,12 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { environment } from '../../../../environments/environment';
 
 const ROLE_ROUTES: Record<string, string> = {
   Admin: '/admin/dashboard', StoreManager: '/manager/dashboard',
   DeliveryDriver: '/delivery', Customer: '/products',
 };
+
+declare const google: any;
 
 @Component({
   selector: 'app-login',
@@ -15,7 +18,7 @@ const ROLE_ROUTES: Record<string, string> = {
     <div class="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
       <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm p-8 w-full max-w-md">
         <div class="text-center mb-7">
-          <span class="text-4xl">🛒</span>
+          <span class="text-4xl">&#x1F6D2;</span>
           <h1 class="text-2xl font-bold text-gray-900 dark:text-white mt-2">FreshMart</h1>
           <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Sign in to your account</p>
         </div>
@@ -25,6 +28,15 @@ const ROLE_ROUTES: Record<string, string> = {
             {{ error() }}
           </div>
         }
+
+        <!-- Google Sign-In button -->
+        <div id="google-signin-btn" class="flex justify-center mb-4"></div>
+
+        <div class="flex items-center gap-3 mb-4">
+          <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+          <span class="text-xs text-gray-400">or sign in with email</span>
+          <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+        </div>
 
         <form (ngSubmit)="submit()" #f="ngForm" class="space-y-4">
           <div>
@@ -63,20 +75,48 @@ const ROLE_ROUTES: Record<string, string> = {
     </div>
   `
 })
-export class Login {
+export class Login implements OnInit {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private zone = inject(NgZone);
 
   email = ''; password = '';
   loading = signal(false);
   error = signal('');
 
   demos = [
-    { label: '👑 Admin',     email: 'admin@grocery.com',    password: 'Admin@123' },
-    { label: '🏪 Manager',   email: 'manager@grocery.com',  password: 'Manager@123' },
-    { label: '🚚 Driver',    email: 'driver@grocery.com',   password: 'Driver@123' },
-    { label: '🛒 Customer',  email: 'customer@grocery.com', password: 'Customer@123' },
+    { label: '&#x1F451; Admin',   email: 'admin@grocery.com',    password: 'Admin@123' },
+    { label: '&#x1F3EA; Manager', email: 'manager@grocery.com',  password: 'Manager@123' },
+    { label: '&#x1F69A; Driver',  email: 'driver@grocery.com',   password: 'Driver@123' },
+    { label: '&#x1F6D2; Customer',email: 'customer@grocery.com', password: 'Customer@123' },
   ];
+
+  ngOnInit() {
+    this.initGoogleSignIn();
+  }
+
+  private initGoogleSignIn() {
+    const tryInit = () => {
+      if (typeof google === 'undefined') { setTimeout(tryInit, 300); return; }
+      google.accounts.id.initialize({
+        client_id: environment.googleClientId,
+        callback: (resp: any) => this.zone.run(() => this.handleGoogleCredential(resp.credential))
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('google-signin-btn'),
+        { theme: 'outline', size: 'large', width: 360, text: 'signin_with' }
+      );
+    };
+    tryInit();
+  }
+
+  private handleGoogleCredential(idToken: string) {
+    this.loading.set(true); this.error.set('');
+    this.auth.googleLogin(idToken).subscribe({
+      next: (t) => this.router.navigate([ROLE_ROUTES[t.role] ?? '/products']),
+      error: (e) => { this.error.set(e.error?.error ?? 'Google sign-in failed'); this.loading.set(false); }
+    });
+  }
 
   fillDemo(email: string, password: string) { this.email = email; this.password = password; }
 

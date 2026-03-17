@@ -44,10 +44,10 @@ const ROLE_ACTIONS: Record<string, { icon: string; label: string; route: string[
     { icon: '📋', label: 'All Orders', route: ['/orders'] },
   ],
   Customer: [
-    { icon: '🛒', label: 'My Cart', route: ['/cart'] },
-    { icon: '📋', label: 'My Orders', route: ['/orders'] },
-    { icon: '❤️', label: 'Wishlist', route: ['/products'] },
-    { icon: '🛍️', label: 'Shop Now', route: ['/products'] },
+    { icon: '&#x1F3F7;', label: 'On Sale',  route: ['/sale']     },
+    { icon: '&#x1F6D2;', label: 'My Cart',  route: ['/cart']     },
+    { icon: '&#x1F4CB;', label: 'My Orders',route: ['/orders']   },
+    { icon: '&#x2764;',  label: 'Wishlist', route: ['/products'] },
   ],
 };
 

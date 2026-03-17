@@ -9,9 +9,16 @@ import { ProductCard } from '../../shared/components/product-card/product-card';
 import { SearchBar, Suggestion } from '../../shared/components/search-bar/search-bar';
 
 const CATEGORY_ICONS: Record<string, string> = {
-  'Fruits & Vegetables': '🥦', 'Dairy & Eggs': '🥛', 'Bakery': '🍞',
-  'Beverages': '🧃', 'Snacks': '🍿', 'Meat & Seafood': '🥩',
-  'Frozen Foods': '🧊', 'Pantry': '🫙',
+  'Fruits & Vegetables': '\u{1F966}', 'Dairy, Bread & Eggs': '\u{1F95B}',
+  'Chicken, Meat & Fish': '\u{1F357}', 'Snacks & Munchies': '\u{1F37F}',
+  'Cold Drinks & Juices': '\u{1F9C3}', 'Tea, Coffee & Milk Drinks': '\u{2615}',
+  'Bakery & Biscuits': '\u{1F36A}', 'Atta, Rice & Dal': '\u{1F33E}',
+  'Oil & More': '\u{1FAD9}', 'Sauces & Spreads': '\u{1F9C2}',
+  'Organic & Healthy Living': '\u{1F331}', 'Breakfast & Instant Food': '\u{1F963}',
+  'Sweet Tooth': '\u{1F36B}', 'Paan Corner': '\u{1F33F}',
+  'Masala & Spices': '\u{1F336}', 'Cleaning Essentials': '\u{1F9F9}',
+  'Home & Office': '\u{1F3E0}', 'Personal Care': '\u{1F9F4}',
+  'Baby Care': '\u{1F476}', 'Pharma & Wellness': '\u{1F48A}', 'Pet Care': '\u{1F43E}',
 };
 
 @Component({
@@ -22,12 +29,12 @@ const CATEGORY_ICONS: Record<string, string> = {
     <div class="flex min-h-screen bg-gray-50 dark:bg-gray-950">
 
       <!-- Sidebar -->
-      <aside class="hidden md:flex flex-col w-56 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 py-6 px-3 gap-1 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+      <aside class="hidden md:flex flex-col w-60 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 py-6 px-3 gap-1 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest px-3 mb-2">Categories</p>
         <button (click)="selectCategory('')"
           [class]="categoryId === '' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'"
           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition w-full text-left">
-          <span>🛒</span><span class="flex-1">All Products</span>
+          <span>&#x1F6D2;</span><span class="flex-1">All Products</span>
           <span class="text-xs text-gray-400">{{ total() }}</span>
         </button>
         @for (cat of categories(); track cat.id) {
@@ -35,8 +42,22 @@ const CATEGORY_ICONS: Record<string, string> = {
             [class]="categoryId === cat.id ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'"
             class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition w-full text-left">
             <span>{{ icon(cat.name) }}</span>
-            <span class="truncate flex-1">{{ cat.name }}</span>
+            <span class="truncate flex-1 text-xs">{{ cat.name }}</span>
           </button>
+        }
+
+        <!-- Brand filter -->
+        @if (brands().length > 0) {
+          <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-3">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Brand</p>
+            <select [(ngModel)]="selectedBrand" (ngModelChange)="selectBrand(selectedBrand)"
+              class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="">All Brands</option>
+              @for (b of brands(); track b) {
+                <option [value]="b">{{ b }}</option>
+              }
+            </select>
+          </div>
         }
       </aside>
 
@@ -69,6 +90,16 @@ const CATEGORY_ICONS: Record<string, string> = {
             <option value="price_desc">Price &#x2193;</option>
             <option value="rating">Top Rated</option>
           </select>
+          <!-- Brand dropdown (mobile + desktop toolbar) -->
+          @if (brands().length > 0) {
+            <select [(ngModel)]="selectedBrand" (ngModelChange)="selectBrand(selectedBrand)"
+              class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="">All Brands</option>
+              @for (b of brands(); track b) {
+                <option [value]="b">{{ b }}</option>
+              }
+            </select>
+          }
           <button (click)="toggleSale()"
             [class]="onSaleOnly ? 'bg-red-500 text-white border-red-500' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'"
             class="px-3 py-2 rounded-xl border text-sm font-medium transition hover:opacity-90">
@@ -76,24 +107,29 @@ const CATEGORY_ICONS: Record<string, string> = {
           </button>
         </div>
 
-        <!-- Filter chips -->
-        @if (query || categoryId || minPrice() != null || maxPrice() != null) {
+        @if (query || categoryId || minPrice() != null || maxPrice() != null || selectedBrand) {
           <div class="flex flex-wrap gap-2 mb-4">
             @if (query) {
               <span class="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1 rounded-full font-medium">
-                🔍 "{{ query }}" <button (click)="clearQuery()" class="ml-1 hover:opacity-70">✕</button>
+                &#x1F50D; "{{ query }}" <button (click)="clearQuery()" class="ml-1 hover:opacity-70">&#x2715;</button>
               </span>
             }
             @if (activeCategoryName()) {
               <span class="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs px-3 py-1 rounded-full font-medium">
                 {{ icon(activeCategoryName()) }} {{ activeCategoryName() }}
-                <button (click)="selectCategory('')" class="ml-1 hover:opacity-70">✕</button>
+                <button (click)="selectCategory('')" class="ml-1 hover:opacity-70">&#x2715;</button>
+              </span>
+            }
+            @if (selectedBrand) {
+              <span class="inline-flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs px-3 py-1 rounded-full font-medium">
+                &#x1F3F7; {{ selectedBrand }}
+                <button (click)="selectBrand('')" class="ml-1 hover:opacity-70">&#x2715;</button>
               </span>
             }
             @if (minPrice() != null || maxPrice() != null) {
               <span class="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs px-3 py-1 rounded-full font-medium">
-                💰 {{ minPrice() != null ? minPrice() : '0' }} - {{ maxPrice() != null ? maxPrice() : 'any' }}
-                <button (click)="clearPrice()" class="ml-1 hover:opacity-70">✕</button>
+                &#x20B9; {{ minPrice() != null ? minPrice() : '0' }} - {{ maxPrice() != null ? maxPrice() : 'any' }}
+                <button (click)="clearPrice()" class="ml-1 hover:opacity-70">&#x2715;</button>
               </span>
             }
             <button (click)="clearAll()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline">Clear all</button>
@@ -197,13 +233,14 @@ export class Products implements OnInit {
 
   products = signal<Product[]>([]);
   categories = signal<Category[]>([]);
+  brands = signal<string[]>([]);
   loading = signal(true);
   total = signal(0);
   page = signal(1);
   toast = signal('');
   saleProducts = signal<Product[]>([]);
 
-  query = ''; categoryId = ''; sortBy = ''; onSaleOnly = false;
+  query = ''; categoryId = ''; sortBy = ''; onSaleOnly = false; selectedBrand = '';
   minPrice = signal<number | null>(null);
   maxPrice = signal<number | null>(null);
   minPriceInput: number | null = null;
@@ -229,6 +266,7 @@ export class Products implements OnInit {
   ngOnInit() {
     this.productService.getCategories().subscribe(c => this.categories.set(c));
     this.productService.getOnSale().subscribe(s => this.saleProducts.set(s));
+    this.productService.getBrands().subscribe(b => this.brands.set(b));
     this.route.queryParams.subscribe(params => {
       if (params['q']) this.query = params['q'];
       if (params['categoryId']) this.categoryId = params['categoryId'];
@@ -249,15 +287,21 @@ export class Products implements OnInit {
     this.productService.getProducts({
       query: this.query || undefined, categoryId: this.categoryId || undefined,
       sortBy: this.sortBy || undefined, minPrice: this.minPrice() ?? undefined,
-      maxPrice: this.maxPrice() ?? undefined, page: this.page(), pageSize: 20
+      maxPrice: this.maxPrice() ?? undefined, brand: this.selectedBrand || undefined,
+      page: this.page(), pageSize: 20
     }).subscribe({
       next: r => { this.products.set(r.items); this.total.set(r.total); this.loading.set(false); },
       error: () => this.loading.set(false)
     });
   }
 
+  selectBrand(b: string) {
+    this.selectedBrand = b; this.page.set(1); this.load();
+  }
+
   selectCategory(id: string) {
-    this.categoryId = id; this.query = ''; this.page.set(1);
+    this.categoryId = id; this.query = ''; this.selectedBrand = ''; this.page.set(1);
+    this.productService.getBrands(id || undefined).subscribe(b => this.brands.set(b));
     if (this.isFiltered()) this.load(); else this.loadAll();
   }
 
@@ -283,12 +327,15 @@ export class Products implements OnInit {
   }
   clearAll() {
     this.query = ''; this.categoryId = ''; this.sortBy = ''; this.onSaleOnly = false;
+    this.selectedBrand = '';
     this.minPrice.set(null); this.maxPrice.set(null);
     this.minPriceInput = null; this.maxPriceInput = null;
-    this.page.set(1); this.loadAll();
+    this.page.set(1);
+    this.productService.getBrands().subscribe(b => this.brands.set(b));
+    this.loadAll();
   }
 
-  isFiltered() { return !!(this.query || this.categoryId || this.minPrice() != null || this.maxPrice() != null || this.sortBy || this.onSaleOnly); }
+  isFiltered() { return !!(this.query || this.categoryId || this.minPrice() != null || this.maxPrice() != null || this.sortBy || this.onSaleOnly || this.selectedBrand); }
 
   toggleSale() {
     this.onSaleOnly = !this.onSaleOnly;

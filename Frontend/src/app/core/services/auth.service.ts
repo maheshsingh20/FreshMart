@@ -26,6 +26,15 @@ export class AuthService {
     );
   }
 
+  googleLogin(idToken: string): Observable<AuthTokens> {
+    return this.http.post<AuthTokens>(`${this.baseUrl}/google`, { idToken }).pipe(
+      tap(tokens => {
+        this.storeTokens(tokens);
+        this.notifService?.init(tokens.accessToken);
+      })
+    );
+  }
+
   register(data: {
     email: string; password: string; firstName: string;
     lastName: string; phoneNumber?: string;

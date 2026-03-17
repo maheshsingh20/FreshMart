@@ -10,7 +10,7 @@ import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-admin-support',
-  imports: [RouterLink, FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe],
   template: `
     <div class="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4">
       <div class="max-w-6xl mx-auto">

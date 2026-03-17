@@ -13,6 +13,8 @@ public class Order
     public decimal DiscountAmount { get; set; }
     public string DeliveryAddress { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public string? RazorpayOrderId { get; set; }
+    public string? RazorpayPaymentId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? EstimatedDelivery { get; set; }
     public DateTime? DeliveredAt { get; set; }

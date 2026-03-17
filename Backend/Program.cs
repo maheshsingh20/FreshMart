@@ -59,6 +59,7 @@ builder.Services.AddCors(opt =>
          .AllowAnyMethod()
          .AllowCredentials())); // Required for SignalR
 
+builder.Services.AddHttpClient();
 builder.Services.AddSignalR();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

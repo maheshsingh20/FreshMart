@@ -1,7 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { environment } from '../../../../environments/environment';
+
+const ROLE_ROUTES: Record<string, string> = {
+  Admin: '/admin/dashboard', StoreManager: '/manager/dashboard',
+  DeliveryDriver: '/delivery', Customer: '/products',
+};
+
+declare const google: any;
 
 @Component({
   selector: 'app-register',
@@ -10,13 +18,22 @@ import { AuthService } from '../../../core/services/auth.service';
     <div class="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
       <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm p-8 w-full max-w-md">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Create account</h1>
-        <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">Start shopping today</p>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-5">Start shopping today</p>
 
         @if (error()) {
           <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg px-4 py-3 mb-4 text-sm">
             {{ error() }}
           </div>
         }
+
+        <!-- Google Sign-Up button -->
+        <div id="google-signup-btn" class="flex justify-center mb-4"></div>
+
+        <div class="flex items-center gap-3 mb-4">
+          <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+          <span class="text-xs text-gray-400">or register with email</span>
+          <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+        </div>
 
         <form (ngSubmit)="submit()" #f="ngForm" class="space-y-4">
           <div class="grid grid-cols-2 gap-3">
@@ -59,13 +76,41 @@ import { AuthService } from '../../../core/services/auth.service';
     </div>
   `
 })
-export class Register {
+export class Register implements OnInit {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private zone = inject(NgZone);
 
   form = { firstName: '', lastName: '', email: '', password: '', phoneNumber: '' };
   loading = signal(false);
   error = signal('');
+
+  ngOnInit() {
+    this.initGoogleSignUp();
+  }
+
+  private initGoogleSignUp() {
+    const tryInit = () => {
+      if (typeof google === 'undefined') { setTimeout(tryInit, 300); return; }
+      google.accounts.id.initialize({
+        client_id: environment.googleClientId,
+        callback: (resp: any) => this.zone.run(() => this.handleGoogleCredential(resp.credential))
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('google-signup-btn'),
+        { theme: 'outline', size: 'large', width: 360, text: 'signup_with' }
+      );
+    };
+    tryInit();
+  }
+
+  private handleGoogleCredential(idToken: string) {
+    this.loading.set(true); this.error.set('');
+    this.auth.googleLogin(idToken).subscribe({
+      next: (t) => this.router.navigate([ROLE_ROUTES[t.role] ?? '/products']),
+      error: (e) => { this.error.set(e.error?.error ?? 'Google sign-up failed'); this.loading.set(false); }
+    });
+  }
 
   submit() {
     this.loading.set(true); this.error.set('');

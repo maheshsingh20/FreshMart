@@ -26,6 +26,10 @@ import { NotificationService } from '../../../core/services/notification.service
           @if (!role() || role() === 'Customer') {
             <a routerLink="/products" routerLinkActive="text-green-600 dark:text-green-400"
               class="px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition">Shop</a>
+            <a routerLink="/sale" routerLinkActive="text-red-500"
+              class="px-3 py-1.5 rounded-lg text-red-500 font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition flex items-center gap-1">
+              &#x1F3F7; Sale
+            </a>
           }
           @if (role() === 'Admin') {
             <a routerLink="/admin/dashboard" routerLinkActive="text-green-600 dark:text-green-400"

@@ -4,3 +4,5 @@ public record OrderItemDto(string ProductId, string ProductName, int Quantity, d
 public record OrderDto(string Id, string CustomerId, string Status, decimal SubTotal, decimal DeliveryFee, decimal TaxAmount, decimal DiscountAmount, decimal TotalAmount, string DeliveryAddress, string? Notes, string CreatedAt, string? EstimatedDelivery, string? DeliveredAt, IEnumerable<OrderItemDto> Items);
 public record CreateOrderRequest(string DeliveryAddress, string? Notes, string? CouponCode);
 public record UpdateOrderStatusRequest(string Status);
+public record CreatePaymentRequest(string DeliveryAddress, string? Notes, string? CouponCode);
+public record VerifyPaymentRequest(string RazorpayOrderId, string RazorpayPaymentId, string RazorpaySignature, string DeliveryAddress, string? Notes, string? CouponCode);

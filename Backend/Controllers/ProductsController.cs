@@ -15,7 +15,8 @@ public class ProductsController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> GetProducts(
         [FromQuery] string? query, [FromQuery] Guid? categoryId,
         [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice,
-        [FromQuery] string? sortBy, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        [FromQuery] string? sortBy, [FromQuery] string? brand,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         var q = db.Products.Include(p => p.Category).Where(p => p.IsActive).AsQueryable();
         if (!string.IsNullOrWhiteSpace(query))
@@ -28,6 +29,7 @@ public class ProductsController(AppDbContext db) : ControllerBase
         if (categoryId.HasValue) q = q.Where(p => p.CategoryId == categoryId);
         if (minPrice.HasValue) q = q.Where(p => p.Price >= minPrice);
         if (maxPrice.HasValue) q = q.Where(p => p.Price <= maxPrice);
+        if (!string.IsNullOrWhiteSpace(brand)) q = q.Where(p => p.Brand == brand);
         q = sortBy switch
         {
             "price_asc" => q.OrderBy(p => p.Price),
@@ -40,6 +42,15 @@ public class ProductsController(AppDbContext db) : ControllerBase
             .Select(p => ToDto(p))
             .ToListAsync();
         return Ok(new PaginatedResult<ProductDto>(items, total, page, pageSize));
+    }
+
+    [HttpGet("brands")]
+    public async Task<IActionResult> GetBrands([FromQuery] Guid? categoryId)
+    {
+        var q = db.Products.Where(p => p.IsActive && p.Brand != null).AsQueryable();
+        if (categoryId.HasValue) q = q.Where(p => p.CategoryId == categoryId);
+        var brands = await q.Select(p => p.Brand!).Distinct().OrderBy(b => b).ToListAsync();
+        return Ok(brands);
     }
 
     [HttpGet("suggestions")]

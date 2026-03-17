@@ -7,6 +7,7 @@ public record AuthResponse(string AccessToken, string RefreshToken, string Expir
 public record UserDto(string Id, string Email, string FirstName, string LastName, string Role, string? PhoneNumber);
 public record UpdateProfileRequest(string FirstName, string LastName, string? PhoneNumber);
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+public record GoogleAuthRequest(string IdToken);
 
 public record UserAdminDto(string Id, string Email, string FirstName, string LastName, string Role, string? PhoneNumber, bool IsActive, DateTime CreatedAt);
 public record UpdateUserRequest(string? Email, string? FirstName, string? LastName, string? PhoneNumber);

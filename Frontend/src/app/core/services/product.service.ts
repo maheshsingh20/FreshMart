@@ -10,6 +10,7 @@ export interface ProductSearchParams {
   minPrice?: number;
   maxPrice?: number;
   sortBy?: string;
+  brand?: string;
   page?: number;
   pageSize?: number;
 }
@@ -26,6 +27,7 @@ export class ProductService {
     if (params.minPrice != null) httpParams = httpParams.set('minPrice', params.minPrice);
     if (params.maxPrice != null) httpParams = httpParams.set('maxPrice', params.maxPrice);
     if (params.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
+    if (params.brand) httpParams = httpParams.set('brand', params.brand);
     httpParams = httpParams.set('page', params.page ?? 1);
     httpParams = httpParams.set('pageSize', params.pageSize ?? 20);
 
@@ -62,6 +64,12 @@ export class ProductService {
 
   getOnSale(): Observable<Product[]> {
     return this.http.get<Product[]>(`${this.baseUrl}/products/on-sale`);
+  }
+
+  getBrands(categoryId?: string): Observable<string[]> {
+    let params = new HttpParams();
+    if (categoryId) params = params.set('categoryId', categoryId);
+    return this.http.get<string[]>(`${this.baseUrl}/products/brands`, { params });
   }
 
   getSuggestions(q: string): Observable<{ id: string; name: string; imageUrl: string; categoryName: string; price: number }[]> {
