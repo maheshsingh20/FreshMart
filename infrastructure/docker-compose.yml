@@ -1,0 +1,191 @@
+version: '3.9'
+
+networks:
+  grocery-net:
+    driver: bridge
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  rabbitmq-data:
+
+services:
+  # ─── Infrastructure ───────────────────────────────────────────────────────────
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "YourStrong@Passw0rd"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks: [grocery-net]
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "YourStrong@Passw0rd" -Q "SELECT 1"
+      interval: 10s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks: [grocery-net]
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: grocery
+      RABBITMQ_DEFAULT_PASS: grocery123
+    networks: [grocery-net]
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      retries: 5
+
+  # ─── Microservices ────────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: services/ApiGateway/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+    depends_on: [auth-service, product-service, cart-service, order-service, payment-service, delivery-service]
+    networks: [grocery-net]
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: services/AuthService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__AuthDb=Server=sqlserver;Database=GroceryAuth;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=grocery
+      - RabbitMQ__Password=grocery123
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+
+  product-service:
+    build:
+      context: ..
+      dockerfile: services/ProductService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__ProductDb=Server=sqlserver;Database=GroceryProducts;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Redis__ConnectionString=redis:6379
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=grocery
+      - RabbitMQ__Password=grocery123
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+
+  cart-service:
+    build:
+      context: ..
+      dockerfile: services/CartService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Redis__ConnectionString=redis:6379
+      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+    depends_on:
+      redis: { condition: service_healthy }
+    networks: [grocery-net]
+
+  order-service:
+    build:
+      context: ..
+      dockerfile: services/OrderService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__OrderDb=Server=sqlserver;Database=GroceryOrders;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=grocery
+      - RabbitMQ__Password=grocery123
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: services/PaymentService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__PaymentDb=Server=sqlserver;Database=GroceryPayments;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Stripe__SecretKey=${STRIPE_SECRET_KEY}
+      - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET}
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=grocery
+      - RabbitMQ__Password=grocery123
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+
+  delivery-service:
+    build:
+      context: ..
+      dockerfile: services/DeliveryService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DeliveryDb=Server=sqlserver;Database=GroceryDelivery;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=grocery
+      - RabbitMQ__Password=grocery123
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+
+  # ─── Frontend ─────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "4200:80"
+    environment:
+      - API_URL=http://localhost:5000
+    depends_on: [api-gateway]
+    networks: [grocery-net]
