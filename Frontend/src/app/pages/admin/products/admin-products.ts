@@ -75,6 +75,12 @@ import { ProductService } from '../../../core/services/product.service';
           <option value="sale">On Sale</option>
           <option value="no-sale">No Discount</option>
         </select>
+        <select [(ngModel)]="filterStock" (ngModelChange)="filterProducts()" class="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <option value="">All stock</option>
+          <option value="out">Out of Stock</option>
+          <option value="low">Low Stock (&le;5)</option>
+          <option value="ok">In Stock</option>
+        </select>
       </div>
 
       <!-- Products table -->
@@ -142,16 +148,24 @@ import { ProductService } from '../../../core/services/product.service';
                   <td class="px-4 py-3">
                     @if (editingStock() === p.id) {
                       <div class="flex items-center gap-1">
-                        <input type="number" [(ngModel)]="stockValue"
+                        <input type="number" [(ngModel)]="stockValue" min="0"
                           class="w-16 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-green-500" />
                         <button (click)="saveStock(p.id)" class="text-green-600 dark:text-green-400 text-xs hover:underline font-medium">Save</button>
                         <button (click)="editingStock.set('')" class="text-gray-400 text-xs hover:underline">Cancel</button>
                       </div>
                     } @else {
-                      <span [class]="p.stockQuantity < 10 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-700 dark:text-gray-300'">
-                        {{ p.stockQuantity }}
-                        <button (click)="startEditStock(p)" class="ml-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs">&#x270F;</button>
-                      </span>
+                      <div class="flex items-center gap-1.5">
+                        @if (p.stockQuantity === 0) {
+                          <span class="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold px-2 py-0.5 rounded-full">Out of stock</span>
+                        } @else if (p.stockQuantity <= 5) {
+                          <span class="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-bold px-2 py-0.5 rounded-full">{{ p.stockQuantity }} left</span>
+                        } @else if (p.stockQuantity < 10) {
+                          <span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-semibold px-2 py-0.5 rounded-full">{{ p.stockQuantity }} units</span>
+                        } @else {
+                          <span class="text-gray-700 dark:text-gray-300 text-sm font-medium">{{ p.stockQuantity }}</span>
+                        }
+                        <button (click)="startEditStock(p)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs">&#x270F;</button>
+                      </div>
                     }
                   </td>
 
@@ -186,6 +200,7 @@ export class AdminProducts implements OnInit {
   search = '';
   filterCat = '';
   filterSale = '';
+  filterStock = '';
 
   onSaleCount = () => this.allProducts().filter(p => p.discountPercent > 0).length;
   lowStockCount = () => this.allProducts().filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
@@ -210,7 +225,12 @@ export class AdminProducts implements OnInit {
     this.filtered.set(this.allProducts().filter(p =>
       (!s || p.name.toLowerCase().includes(s) || p.sku.toLowerCase().includes(s)) &&
       (!this.filterCat || p.categoryName === this.filterCat) &&
-      (!this.filterSale || (this.filterSale === 'sale' ? p.discountPercent > 0 : p.discountPercent === 0))
+      (!this.filterSale || (this.filterSale === 'sale' ? p.discountPercent > 0 : p.discountPercent === 0)) &&
+      (!this.filterStock || (
+        this.filterStock === 'out' ? p.stockQuantity === 0 :
+        this.filterStock === 'low' ? p.stockQuantity > 0 && p.stockQuantity <= 5 :
+        p.stockQuantity > 5
+      ))
     ));
   }
 

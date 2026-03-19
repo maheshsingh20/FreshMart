@@ -37,7 +37,7 @@ export class AuthService {
 
   register(data: {
     email: string; password: string; firstName: string;
-    lastName: string; phoneNumber?: string;
+    lastName: string; phoneNumber?: string; role?: string; inviteCode?: string;
   }): Observable<{ userId: string; email: string; role: string }> {
     return this.http.post<any>(`${this.baseUrl}/register`, data);
   }

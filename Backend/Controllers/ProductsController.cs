@@ -1,6 +1,7 @@
 using Backend.Data;
 using Backend.DTOs;
 using Backend.Models;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,7 @@ namespace Backend.Controllers;
 
 [ApiController]
 [Route("api/v1/products")]
-public class ProductsController(AppDbContext db) : ControllerBase
+public class ProductsController(AppDbContext db, NotificationService notif) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetProducts(
@@ -102,8 +103,25 @@ public class ProductsController(AppDbContext db) : ControllerBase
     {
         var product = await db.Products.FindAsync(id);
         if (product == null) return NotFound();
+        var oldQty = product.StockQuantity;
         product.StockQuantity = req.Quantity;
         await db.SaveChangesAsync();
+
+        // Notify if stock just hit 0 or low threshold
+        if (req.Quantity == 0 && oldQty > 0)
+        {
+            await notif.SendToRoleAsync("Admin", "\u26A0\uFE0F Out of Stock",
+                $"'{product.Name}' has been set to 0 stock.", "warning", "/admin/products");
+            await notif.SendToRoleAsync("StoreManager", "\u26A0\uFE0F Out of Stock",
+                $"'{product.Name}' has been set to 0 stock.", "warning", "/admin/products");
+        }
+        else if (req.Quantity > 0 && req.Quantity <= 5 && oldQty > 5)
+        {
+            await notif.SendToRoleAsync("Admin", "\U0001F4E6 Low Stock Alert",
+                $"'{product.Name}' stock is now {req.Quantity}.", "warning", "/admin/products");
+            await notif.SendToRoleAsync("StoreManager", "\U0001F4E6 Low Stock Alert",
+                $"'{product.Name}' stock is now {req.Quantity}.", "warning", "/admin/products");
+        }
         return NoContent();
     }
 

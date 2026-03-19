@@ -12,11 +12,44 @@ public static class DbSeeder
         if (!await db.Users.AnyAsync())
         {
             db.Users.AddRange(
-                new AppUser { Email = "admin@grocery.com",    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),    FirstName = "Admin",   LastName = "User",    Role = "Admin"          },
-                new AppUser { Email = "manager@grocery.com",  PasswordHash = BCrypt.Net.BCrypt.HashPassword("Manager@123"),  FirstName = "Store",   LastName = "Manager", Role = "StoreManager"   },
-                new AppUser { Email = "driver@grocery.com",   PasswordHash = BCrypt.Net.BCrypt.HashPassword("Driver@123"),   FirstName = "Delivery",LastName = "Driver",  Role = "DeliveryDriver" },
-                new AppUser { Email = "customer@grocery.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword("Customer@123"), FirstName = "John",    LastName = "Doe",     Role = "Customer"       }
+                new AppUser { Email = "ankitkumarkunwar8@gmail.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),    FirstName = "Ankit",    LastName = "Kumar",   Role = "Admin",          EmailVerified = true },
+                new AppUser { Email = "manager@freshmart.in",       PasswordHash = BCrypt.Net.BCrypt.HashPassword("Manager@123"),  FirstName = "Store",    LastName = "Manager", Role = "StoreManager",   EmailVerified = true },
+                new AppUser { Email = "driver@freshmart.in",        PasswordHash = BCrypt.Net.BCrypt.HashPassword("Driver@123"),   FirstName = "Delivery", LastName = "Driver",  Role = "DeliveryDriver", EmailVerified = true },
+                new AppUser { Email = "customer@freshmart.in",      PasswordHash = BCrypt.Net.BCrypt.HashPassword("Customer@123"), FirstName = "John",     LastName = "Doe",     Role = "Customer",       EmailVerified = true }
             );
+            await db.SaveChangesAsync();
+        }
+        else
+        {
+            // Migrate old demo emails to real ones if they still exist and target doesn't already exist
+            var migrations = new Dictionary<string, (string NewEmail, string FirstName, string LastName, string Role)>
+            {
+                ["admin@grocery.com"]    = ("ankitkumarkunwar8@gmail.com", "Ankit",    "Kumar",   "Admin"),
+                ["manager@grocery.com"]  = ("manager@freshmart.in",       "Store",    "Manager", "StoreManager"),
+                ["driver@grocery.com"]   = ("driver@freshmart.in",        "Delivery", "Driver",  "DeliveryDriver"),
+                ["customer@grocery.com"] = ("customer@freshmart.in",      "John",     "Doe",     "Customer"),
+            };
+            foreach (var (oldEmail, info) in migrations)
+            {
+                var u = await db.Users.FirstOrDefaultAsync(x => x.Email == oldEmail);
+                if (u == null) continue;
+                // Only rename if target email doesn't already exist
+                var targetExists = await db.Users.AnyAsync(x => x.Email == info.NewEmail);
+                if (!targetExists)
+                {
+                    u.Email = info.NewEmail; u.FirstName = info.FirstName;
+                    u.LastName = info.LastName; u.Role = info.Role; u.EmailVerified = true;
+                }
+                else
+                {
+                    // Target already exists — just delete the old duplicate
+                    db.Users.Remove(u);
+                }
+            }
+            // Ensure all seeded users are verified
+            var seedEmails = new[] { "ankitkumarkunwar8@gmail.com", "manager@freshmart.in", "driver@freshmart.in", "customer@freshmart.in" };
+            var existing = await db.Users.Where(u => seedEmails.Contains(u.Email)).ToListAsync();
+            foreach (var u in existing) u.EmailVerified = true;
             await db.SaveChangesAsync();
         }
 
@@ -129,8 +162,12 @@ public static class DbSeeder
             new Product { Name = "Pampers Diapers",      Description = "Baby dry diapers M 56 count",     Price = 850m, Sku = "BC001", ImageUrl = "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400", CategoryId = C("Baby Care"),                 StockQuantity = 30,  Unit = "56 count", Brand = "Pampers",      AverageRating = 4.8 },
             new Product { Name = "Cerelac",              Description = "Baby wheat cereal 300g",          Price = 220m, Sku = "BC002", ImageUrl = "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400", CategoryId = C("Baby Care"),                 StockQuantity = 35,  Unit = "300g",     Brand = "Nestle",       AverageRating = 4.7 },
             // Pharma & Wellness
-            new Product { Name = "Vitamin C 1000mg",     Description = "Immunity booster 60 tablets",     Price = 450m, Sku = "PW001", ImageUrl = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400", CategoryId = C("Pharma & Wellness"),          StockQuantity = 45,  Unit = "60 tabs",  Brand = "HealthVit",    AverageRating = 4.6 },
-            new Product { Name = "Dettol Sanitizer",     Description = "Hand sanitizer 500ml",            Price = 180m, Sku = "PW002", ImageUrl = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400", CategoryId = C("Pharma & Wellness"),          StockQuantity = 60,  Unit = "500ml",    Brand = "Dettol",       AverageRating = 4.7 },
+            new Product { Name = "Vitamin C 1000mg",              Description = "Immunity booster 60 tablets",          Price = 450m, Sku = "PW001", ImageUrl = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400", CategoryId = C("Pharma & Wellness"), StockQuantity = 45,  Unit = "60 tabs",  Brand = "HealthVit", AverageRating = 4.6 },
+            new Product { Name = "Dettol Sanitizer",              Description = "Hand sanitizer 500ml",                 Price = 180m, Sku = "PW002", ImageUrl = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400", CategoryId = C("Pharma & Wellness"), StockQuantity = 60,  Unit = "500ml",    Brand = "Dettol",    AverageRating = 4.7 },
+            new Product { Name = "Durex Extra Safe",              Description = "Condoms extra safe 10 count",          Price = 299m, Sku = "PW003", ImageUrl = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400", CategoryId = C("Pharma & Wellness"), StockQuantity = 80,  Unit = "10 count", Brand = "Durex",     AverageRating = 4.6 },
+            new Product { Name = "Durex Invisible",               Description = "Ultra thin condoms 10 count",          Price = 349m, Sku = "PW004", ImageUrl = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400", CategoryId = C("Pharma & Wellness"), StockQuantity = 75,  Unit = "10 count", Brand = "Durex",     AverageRating = 4.7 },
+            new Product { Name = "Durex Pleasure Me",             Description = "Ribbed and dotted condoms 10 count",   Price = 329m, Sku = "PW005", ImageUrl = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400", CategoryId = C("Pharma & Wellness"), StockQuantity = 70,  Unit = "10 count", Brand = "Durex",     AverageRating = 4.5 },
+            new Product { Name = "Durex Performa",                Description = "Extended pleasure condoms 10 count",   Price = 379m, Sku = "PW006", ImageUrl = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400", CategoryId = C("Pharma & Wellness"), StockQuantity = 60,  Unit = "10 count", Brand = "Durex",     AverageRating = 4.4 },
             // Pet Care
             new Product { Name = "Pedigree Dog Food",    Description = "Adult dog food chicken 3kg",      Price = 780m, Sku = "PT001", ImageUrl = "https://images.unsplash.com/photo-1601758124510-52d02ddb7cbd?w=400", CategoryId = C("Pet Care"),                  StockQuantity = 25,  Unit = "3kg",      Brand = "Pedigree",     AverageRating = 4.7 },
             // Paan Corner

@@ -1,6 +1,6 @@
 import { Component, inject, signal, OnInit, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { environment } from '../../../../environments/environment';
 
@@ -28,6 +28,11 @@ declare const google: any;
             {{ error() }}
           </div>
         }
+        @if (successMsg()) {
+          <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg px-4 py-3 mb-4 text-sm">
+            {{ successMsg() }}
+          </div>
+        }
 
         <!-- Google Sign-In button -->
         <div id="google-signin-btn" class="flex justify-center mb-4"></div>
@@ -53,6 +58,9 @@ declare const google: any;
             class="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2.5 rounded-lg font-medium transition">
             {{ loading() ? 'Signing in...' : 'Sign in' }}
           </button>
+          <div class="text-right">
+            <a routerLink="/auth/forgot-password" class="text-sm text-green-600 dark:text-green-400 hover:underline">Forgot password?</a>
+          </div>
         </form>
 
         <p class="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
@@ -79,10 +87,12 @@ export class Login implements OnInit {
   private auth = inject(AuthService);
   private router = inject(Router);
   private zone = inject(NgZone);
+  private route = inject(ActivatedRoute);
 
   email = ''; password = '';
   loading = signal(false);
   error = signal('');
+  successMsg = signal('');
 
   demos = [
     { label: '&#x1F451; Admin',   email: 'admin@grocery.com',    password: 'Admin@123' },
@@ -92,6 +102,8 @@ export class Login implements OnInit {
   ];
 
   ngOnInit() {
+    if (this.route.snapshot.queryParamMap.get('reset') === 'success')
+      this.successMsg.set('Password reset successfully. Please sign in.');
     this.initGoogleSignIn();
   }
 
@@ -124,7 +136,14 @@ export class Login implements OnInit {
     this.loading.set(true); this.error.set('');
     this.auth.login(this.email, this.password).subscribe({
       next: (t) => this.router.navigate([ROLE_ROUTES[t.role] ?? '/products']),
-      error: (e) => { this.error.set(e.error?.error ?? 'Login failed'); this.loading.set(false); }
+      error: (e) => {
+        if (e.error?.code === 'EMAIL_NOT_VERIFIED') {
+          this.router.navigate(['/auth/verify-email'], { queryParams: { email: e.error.email } });
+        } else {
+          this.error.set(e.error?.error ?? 'Login failed');
+        }
+        this.loading.set(false);
+      }
     });
   }
 }

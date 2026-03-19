@@ -15,6 +15,15 @@ public class AppUser
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiry { get; set; }
 
+    // Email verification
+    public bool EmailVerified { get; set; } = false;
+    public string? EmailOtp { get; set; }
+    public DateTime? OtpExpiry { get; set; }
+
+    // Password reset
+    public string? PasswordResetOtp { get; set; }
+    public DateTime? PasswordResetOtpExpiry { get; set; }
+
     public ICollection<Order> Orders { get; set; } = [];
     public Cart? Cart { get; set; }
 }

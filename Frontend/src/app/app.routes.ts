@@ -6,9 +6,11 @@ export const routes: Routes = [
   { path: '', loadComponent: () => import('./pages/home/home').then(m => m.Home) },
 
   // Auth
-  { path: 'auth/login',    loadComponent: () => import('./pages/auth/login/login').then(m => m.Login) },
-  { path: 'auth/register', loadComponent: () => import('./pages/auth/register/register').then(m => m.Register) },
-  { path: 'unauthorized',  loadComponent: () => import('./pages/unauthorized/unauthorized').then(m => m.Unauthorized) },
+  { path: 'auth/login',          loadComponent: () => import('./pages/auth/login/login').then(m => m.Login) },
+  { path: 'auth/register',       loadComponent: () => import('./pages/auth/register/register').then(m => m.Register) },
+  { path: 'auth/verify-email',   loadComponent: () => import('./pages/auth/verify-email/verify-email').then(m => m.VerifyEmail) },
+  { path: 'auth/forgot-password',loadComponent: () => import('./pages/auth/forgot-password/forgot-password').then(m => m.ForgotPassword) },
+  { path: 'unauthorized',        loadComponent: () => import('./pages/unauthorized/unauthorized').then(m => m.Unauthorized) },
 
   // Customer
   { path: 'products',     loadComponent: () => import('./pages/products/products').then(m => m.Products) },

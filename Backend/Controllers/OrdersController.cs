@@ -4,8 +4,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Backend.Data;
 using Backend.DTOs;
+using Backend.Messaging;
 using Backend.Models;
 using Backend.Services;
+using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +20,7 @@ namespace Backend.Controllers;
 [ApiController]
 [Route("api/v1/orders")]
 [Authorize]
-public class OrdersController(AppDbContext db, NotificationService notif, IConfiguration config) : ControllerBase
+public class OrdersController(AppDbContext db, IPublishEndpoint bus, IConfiguration config) : ControllerBase
 {
     private Guid UserId => Guid.Parse(
         User.FindFirstValue(JwtRegisteredClaimNames.Sub)
@@ -141,6 +143,13 @@ public class OrdersController(AppDbContext db, NotificationService notif, IConfi
             .FirstOrDefaultAsync(c => c.CustomerId == UserId);
         if (cart == null || !cart.Items.Any()) return BadRequest(new { error = "Cart is empty" });
 
+        // Stock validation
+        foreach (var item in cart.Items)
+        {
+            if (item.Product.StockQuantity < item.Quantity)
+                return BadRequest(new { error = $"'{item.Product.Name}' only has {item.Product.StockQuantity} units available." });
+        }
+
         var (subTotal, delivery, tax, discount, coupon) = await CalcTotalsAsync(UserId, req.CouponCode);
         if (coupon != null) coupon.UsedCount++;
 
@@ -168,18 +177,33 @@ public class OrdersController(AppDbContext db, NotificationService notif, IConfi
                     : i.Product.Price
             }).ToList()
         };
+
+        // Deduct stock
+        foreach (var item in cart.Items)
+            item.Product.StockQuantity -= item.Quantity;
+
         db.Orders.Add(order);
         db.CartItems.RemoveRange(cart.Items);
         await db.SaveChangesAsync();
 
-        await notif.SendToUserAsync(UserId,
-            "Payment Successful \u2705",
-            $"Order #{order.Id.ToString()[..8].ToUpper()} confirmed. Total: \u20b9{order.TotalAmount:F2}",
-            "success", $"/orders/{order.Id}/track");
-        await notif.SendToRoleAsync("Admin", "New Order Received",
-            $"Order #{order.Id.ToString()[..8].ToUpper()} paid \u20b9{order.TotalAmount:F2}", "order", "/admin/orders");
-        await notif.SendToRoleAsync("StoreManager", "New Order Received",
-            $"Order #{order.Id.ToString()[..8].ToUpper()} paid \u20b9{order.TotalAmount:F2}", "order", "/admin/orders");
+        // Publish order placed event — email + notifications handled by consumer
+        var customer = await db.Users.FindAsync(UserId);
+        await bus.Publish(new OrderPlacedMessage
+        {
+            OrderId = order.Id,
+            OrderRef = order.Id.ToString()[..8].ToUpper(),
+            CustomerId = UserId,
+            CustomerEmail = customer?.Email ?? "",
+            CustomerFirstName = customer?.FirstName ?? "",
+            Total = order.TotalAmount,
+            Items = order.Items.Select(i => new OrderItemLine { ProductName = i.ProductName, Quantity = i.Quantity, UnitPrice = i.UnitPrice }).ToList(),
+            IsPaid = true
+        });
+
+        // Publish stock alerts
+        foreach (var item in cart.Items)
+            if (item.Product.StockQuantity <= 5)
+                await bus.Publish(new StockAlertMessage { ProductName = item.Product.Name, RemainingStock = item.Product.StockQuantity });
 
         return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, ToDto(order));
     }
@@ -190,6 +214,13 @@ public class OrdersController(AppDbContext db, NotificationService notif, IConfi
         var cart = await db.Carts.Include(c => c.Items).ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(c => c.CustomerId == UserId);
         if (cart == null || !cart.Items.Any()) return BadRequest(new { error = "Cart is empty" });
+
+        // Stock validation
+        foreach (var item in cart.Items)
+        {
+            if (item.Product.StockQuantity < item.Quantity)
+                return BadRequest(new { error = $"'{item.Product.Name}' only has {item.Product.StockQuantity} units available." });
+        }
 
         var subTotal = cart.Items.Sum(i => {
             var unitPrice = i.Product.DiscountPercent > 0
@@ -237,21 +268,33 @@ public class OrdersController(AppDbContext db, NotificationService notif, IConfi
                     : i.Product.Price
             }).ToList()
         };
+
+        // Deduct stock
+        foreach (var item in cart.Items)
+            item.Product.StockQuantity -= item.Quantity;
+
         db.Orders.Add(order);
         db.CartItems.RemoveRange(cart.Items);
         await db.SaveChangesAsync();
 
-        // Notify customer
-        await notif.SendToUserAsync(UserId,
-            "Order Placed",
-            $"Your order #{order.Id.ToString()[..8].ToUpper()} has been placed successfully. Total: Rs.{order.TotalAmount:F2}",
-            "success", $"/orders/{order.Id}/track");
+        // Publish order placed event — email + notifications handled by consumer
+        var customer = await db.Users.FindAsync(UserId);
+        await bus.Publish(new OrderPlacedMessage
+        {
+            OrderId = order.Id,
+            OrderRef = order.Id.ToString()[..8].ToUpper(),
+            CustomerId = UserId,
+            CustomerEmail = customer?.Email ?? "",
+            CustomerFirstName = customer?.FirstName ?? "",
+            Total = order.TotalAmount,
+            Items = order.Items.Select(i => new OrderItemLine { ProductName = i.ProductName, Quantity = i.Quantity, UnitPrice = i.UnitPrice }).ToList(),
+            IsPaid = false
+        });
 
-        // Notify admins/managers
-        await notif.SendToRoleAsync("Admin", "New Order Received",
-            $"Order #{order.Id.ToString()[..8].ToUpper()} placed for Rs.{order.TotalAmount:F2}", "order", "/admin/orders");
-        await notif.SendToRoleAsync("StoreManager", "New Order Received",
-            $"Order #{order.Id.ToString()[..8].ToUpper()} placed for Rs.{order.TotalAmount:F2}", "order", "/admin/orders");
+        // Publish stock alerts
+        foreach (var item in cart.Items)
+            if (item.Product.StockQuantity <= 5)
+                await bus.Publish(new StockAlertMessage { ProductName = item.Product.Name, RemainingStock = item.Product.StockQuantity });
 
         return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, ToDto(order));
     }
@@ -266,23 +309,19 @@ public class OrdersController(AppDbContext db, NotificationService notif, IConfi
         if (req.Status == "Delivered") order.DeliveredAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        // Notify the customer about their order status change
-        var (title, msg, type) = req.Status switch
+        // Publish status changed event — email + notifications handled by consumer
+        var customer = await db.Users.FindAsync(order.CustomerId);
+        await bus.Publish(new OrderStatusChangedMessage
         {
-            "Processing"     => ("Order Processing",      $"Your order #{id.ToString()[..8].ToUpper()} is being prepared.", "info"),
-            "Shipped"        => ("Order Shipped",         $"Your order #{id.ToString()[..8].ToUpper()} has been shipped!", "info"),
-            "OutForDelivery" => ("Out for Delivery",      $"Your order #{id.ToString()[..8].ToUpper()} is out for delivery!", "warning"),
-            "Delivered"      => ("Order Delivered",       $"Your order #{id.ToString()[..8].ToUpper()} has been delivered. Enjoy!", "success"),
-            "Cancelled"      => ("Order Cancelled",       $"Your order #{id.ToString()[..8].ToUpper()} has been cancelled.", "error"),
-            _                => ("Order Updated",         $"Your order #{id.ToString()[..8].ToUpper()} status: {req.Status}", "info")
-        };
-        await notif.SendToUserAsync(order.CustomerId, title, msg, type, $"/orders/{id}/track");
-
-        // Notify delivery drivers when order is ready to ship
-        if (req.Status == "Shipped" || req.Status == "Processing")
-            await notif.SendToRoleAsync("DeliveryDriver", "New Delivery Available",
-                $"Order #{id.ToString()[..8].ToUpper()} is ready for pickup.", "order", "/delivery");
+            OrderId = order.Id,
+            OrderRef = id.ToString()[..8].ToUpper(),
+            CustomerId = order.CustomerId,
+            CustomerEmail = customer?.Email ?? "",
+            CustomerFirstName = customer?.FirstName ?? "",
+            NewStatus = req.Status
+        });
 
         return NoContent();
     }
+
 }
