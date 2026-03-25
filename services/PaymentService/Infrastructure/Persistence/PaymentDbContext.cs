@@ -15,9 +15,9 @@ public class PaymentDbContext(DbContextOptions<PaymentDbContext> options) : DbCo
             e.Property(x => x.Amount).HasPrecision(18, 2);
             e.Property(x => x.Status).HasConversion<string>();
             e.Property(x => x.Method).HasConversion<string>();
-            e.Property(x => x.StripePaymentIntentId).HasMaxLength(200);
-            e.Property(x => x.StripeChargeId).HasMaxLength(200);
-            e.HasIndex(x => x.OrderId);
+            e.Property(x => x.RazorpayOrderId).HasMaxLength(200);
+            e.Property(x => x.RazorpayPaymentId).HasMaxLength(200);
+            e.HasIndex(x => x.RazorpayOrderId);
         });
     }
 }

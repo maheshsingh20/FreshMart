@@ -9,15 +9,21 @@ public static class AuthDbSeeder
     {
         if (db.Users.Any()) return;
 
-        var users = new[]
+        var seeds = new[]
         {
-            User.Create("admin@grocery.com",    hasher.Hash("Admin@123"),    "Admin",   "User",    UserRole.Admin),
-            User.Create("manager@grocery.com",  hasher.Hash("Manager@123"),  "Store",   "Manager", UserRole.StoreManager),
-            User.Create("driver@grocery.com",   hasher.Hash("Driver@123"),   "Delivery","Driver",  UserRole.DeliveryDriver),
-            User.Create("customer@grocery.com", hasher.Hash("Customer@123"), "John",    "Customer",UserRole.Customer),
+            ("ankitkumarkunwar8@gmail.com", "Admin@123",    "Admin",    "User",     UserRole.Admin),
+            ("manager@freshmart.in",        "Manager@123",  "Store",    "Manager",  UserRole.StoreManager),
+            ("driver@freshmart.in",         "Driver@123",   "Delivery", "Driver",   UserRole.DeliveryDriver),
+            ("customer@freshmart.in",       "Customer@123", "John",     "Customer", UserRole.Customer),
         };
 
-        await db.Users.AddRangeAsync(users);
+        foreach (var (email, password, first, last, role) in seeds)
+        {
+            var user = User.Create(email, hasher.Hash(password), first, last, role);
+            user.VerifyEmail();
+            db.Users.Add(user);
+        }
+
         await db.SaveChangesAsync();
     }
 }

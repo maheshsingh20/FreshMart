@@ -18,9 +18,14 @@ builder.Host.UseSerilog();
 builder.Services.AddDbContext<ProductDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("ProductDb")));
 
-// Redis cache
-var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConn));
+// Redis cache — lazy connect so startup doesn't fail if Redis is unavailable
+var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379,abortConnect=false";
+if (!redisConn.Contains("abortConnect")) redisConn += ",abortConnect=false";
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    try { return ConnectionMultiplexer.Connect(redisConn); }
+    catch { return ConnectionMultiplexer.Connect("localhost:6379,abortConnect=false"); }
+});
 
 // RabbitMQ event bus
 builder.Services.AddSingleton<IMessageBus, RabbitMqMessageBus>();
@@ -34,6 +39,7 @@ var jwtSecret = builder.Configuration["Jwt:Secret"]!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
+        opt.MapInboundClaims = false;
         opt.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
@@ -60,7 +66,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ProductDbContext>();
-    await db.Database.MigrateAsync();
+    await db.Database.EnsureCreatedAsync();
     await ProductDbSeeder.SeedAsync(db);
 }
 

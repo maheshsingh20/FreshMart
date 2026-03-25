@@ -1,4 +1,6 @@
 using AuthService.Domain;
+using AuthService.Application.Services;
+using AuthService.Infrastructure;
 using FluentValidation;
 using MediatR;
 using SharedKernel.CQRS;
@@ -29,7 +31,10 @@ public class RegisterUserValidator : AbstractValidator<RegisterUserCommand>
     }
 }
 
-public class RegisterUserHandler(IUserRepository repo, IPasswordHasher hasher)
+public class RegisterUserHandler(
+    IUserRepository repo,
+    IPasswordHasher hasher,
+    NotificationRelay notificationRelay)
     : ICommandHandler<RegisterUserCommand, RegisterUserResponse>
 {
     public async Task<Result<RegisterUserResponse>> Handle(
@@ -42,6 +47,10 @@ public class RegisterUserHandler(IUserRepository repo, IPasswordHasher hasher)
         var user = User.Create(cmd.Email, hash, cmd.FirstName, cmd.LastName, cmd.Role, cmd.PhoneNumber);
 
         await repo.AddAsync(user, ct);
+
+        // RabbitMQ first, HTTP fallback (fire-and-forget)
+        _ = notificationRelay.NotifyWelcomeAsync(user.Id, user.Email, user.FirstName, ct);
+
         return Result<RegisterUserResponse>.Success(
             new RegisterUserResponse(user.Id, user.Email, user.Role.ToString()));
     }

@@ -21,6 +21,15 @@ public class OrderRepository(OrderDbContext db) : IOrderRepository
         await db.Orders.Include(o => o.Items)
             .Where(o => o.Status == status).ToListAsync(ct);
 
+    public async Task<IEnumerable<Order>> GetAllAsync(int page, int pageSize, CancellationToken ct = default) =>
+        await db.Orders.Include(o => o.Items)
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .ToListAsync(ct);
+
+    public Task<int> GetAllCountAsync(CancellationToken ct = default) =>
+        db.Orders.CountAsync(ct);
+
     public Task<int> GetTotalByCustomerAsync(Guid customerId, CancellationToken ct = default) =>
         db.Orders.CountAsync(o => o.CustomerId == customerId, ct);
 

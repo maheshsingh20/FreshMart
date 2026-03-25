@@ -14,6 +14,8 @@ public class OrderDbContext(DbContextOptions<OrderDbContext> options) : DbContex
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.DeliveryAddress).HasMaxLength(500).IsRequired();
+            e.Property(x => x.CustomerEmail).HasMaxLength(256).HasDefaultValue("");
+            e.Property(x => x.CustomerFirstName).HasMaxLength(100).HasDefaultValue("");
             e.Property(x => x.SubTotal).HasPrecision(18, 2);
             e.Property(x => x.DeliveryFee).HasPrecision(18, 2);
             e.Property(x => x.TaxAmount).HasPrecision(18, 2);

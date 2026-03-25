@@ -22,6 +22,7 @@ export interface Product {
   price: number;
   sku: string;
   imageUrl: string;
+  categoryId: string;
   categoryName: string;
   stockQuantity: number;
   isActive: boolean;

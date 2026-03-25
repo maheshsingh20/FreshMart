@@ -11,8 +11,8 @@ public class PaymentRepository(PaymentDbContext db) : IPaymentRepository
     public Task<Payment?> GetByOrderIdAsync(Guid orderId, CancellationToken ct = default) =>
         db.Payments.FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
 
-    public Task<Payment?> GetByStripeIntentAsync(string intentId, CancellationToken ct = default) =>
-        db.Payments.FirstOrDefaultAsync(p => p.StripePaymentIntentId == intentId, ct);
+    public Task<Payment?> GetByRazorpayOrderIdAsync(string razorpayOrderId, CancellationToken ct = default) =>
+        db.Payments.FirstOrDefaultAsync(p => p.RazorpayOrderId == razorpayOrderId, ct);
 
     public async Task AddAsync(Payment payment, CancellationToken ct = default)
     {

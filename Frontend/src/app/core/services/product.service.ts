@@ -58,6 +58,14 @@ export class ProductService {
     return this.http.patch<void>(`${this.baseUrl}/products/${id}/stock`, { quantity });
   }
 
+  updateProduct(id: string, data: {
+    name: string; description: string; price: number; imageUrl: string;
+    categoryId: string; brand?: string; unit?: string; weight?: number;
+    discountPercent: number; isActive: boolean;
+  }): Observable<Product> {
+    return this.http.put<Product>(`${this.baseUrl}/products/${id}`, data);
+  }
+
   updateDiscount(id: string, discountPercent: number): Observable<void> {
     return this.http.patch<void>(`${this.baseUrl}/products/${id}/discount`, { discountPercent });
   }

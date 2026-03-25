@@ -8,6 +8,7 @@ public interface IDeliveryRepository
     Task<Delivery?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<Delivery?> GetByOrderIdAsync(Guid orderId, CancellationToken ct = default);
     Task<IEnumerable<Delivery>> GetByDriverAsync(Guid driverId, CancellationToken ct = default);
+    Task<IEnumerable<Delivery>> GetPendingAsync(CancellationToken ct = default);
     Task<IEnumerable<DeliverySlot>> GetSlotsByDateAsync(DateTime date, CancellationToken ct = default);
     Task AddAsync(Delivery delivery, CancellationToken ct = default);
     Task UpdateAsync(Delivery delivery, CancellationToken ct = default);
@@ -22,7 +23,10 @@ public class DeliveryRepository(DeliveryDbContext db) : IDeliveryRepository
         db.Deliveries.FirstOrDefaultAsync(d => d.OrderId == orderId, ct);
 
     public async Task<IEnumerable<Delivery>> GetByDriverAsync(Guid driverId, CancellationToken ct = default) =>
-        await db.Deliveries.Where(d => d.DriverId == driverId).ToListAsync(ct);
+        await db.Deliveries.Where(d => d.DriverId == driverId).OrderByDescending(d => d.CreatedAt).ToListAsync(ct);
+
+    public async Task<IEnumerable<Delivery>> GetPendingAsync(CancellationToken ct = default) =>
+        await db.Deliveries.Where(d => d.Status == DeliveryStatus.Pending || d.Status == DeliveryStatus.Assigned).ToListAsync(ct);
 
     public async Task<IEnumerable<DeliverySlot>> GetSlotsByDateAsync(DateTime date, CancellationToken ct = default) =>
         await db.DeliverySlots

@@ -1,5 +1,3 @@
-version: '3.9'
-
 networks:
   grocery-net:
     driver: bridge
@@ -14,7 +12,7 @@ services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
-      SA_PASSWORD: "YourStrong@Passw0rd"
+      SA_PASSWORD: "${SA_PASSWORD}"
       ACCEPT_EULA: "Y"
       MSSQL_PID: "Developer"
     ports:
@@ -23,9 +21,11 @@ services:
       - sqlserver-data:/var/opt/mssql
     networks: [grocery-net]
     healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "YourStrong@Passw0rd" -Q "SELECT 1"
-      interval: 10s
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${SA_PASSWORD}' -Q 'SELECT 1' -No"]
+      interval: 15s
+      timeout: 10s
       retries: 10
+      start_period: 60s
 
   redis:
     image: redis:7-alpine
@@ -38,24 +38,314 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     ports:
-      - "5672:5672"
+      - "5673:5672"
       - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: grocery
-      RABBITMQ_DEFAULT_PASS: grocery123
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASS}"
     networks: [grocery-net]
     healthcheck:
       test: rabbitmq-diagnostics -q ping
       interval: 10s
-      retries: 5
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   # ─── Microservices ────────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ..
+      dockerfile: services/AuthService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__AuthDb=Server=sqlserver;Database=GroceryAuth;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Jwt__ExpiryMinutes=60
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  product-service:
+    build:
+      context: ..
+      dockerfile: services/ProductService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__ProductDb=Server=sqlserver;Database=GroceryProducts;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Redis__ConnectionString=redis:6379
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  cart-service:
+    build:
+      context: ..
+      dockerfile: services/CartService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - Redis__ConnectionString=redis:6379
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Services__ProductService=http://product-service:8080
+    depends_on:
+      redis: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  order-service:
+    build:
+      context: ..
+      dockerfile: services/OrderService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__OrderDb=Server=sqlserver;Database=GroceryOrders;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
+      - Services__PaymentService=http://payment-service:8080
+      - Services__NotificationService=http://notification-service:8080
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: services/PaymentService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__PaymentDb=Server=sqlserver;Database=GroceryPayments;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Razorpay__KeyId=${RAZORPAY_KEY_ID}
+      - Razorpay__KeySecret=${RAZORPAY_KEY_SECRET}
+      - Razorpay__WebhookSecret=${RAZORPAY_WEBHOOK_SECRET}
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  delivery-service:
+    build:
+      context: ..
+      dockerfile: services/DeliveryService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DeliveryDb=Server=sqlserver;Database=GroceryDelivery;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: services/NotificationService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__NotificationDb=Server=sqlserver;Database=GroceryNotifications;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Email__Enabled=true
+      - Email__Host=smtp.gmail.com
+      - Email__Port=587
+      - Email__Username=${EMAIL_USERNAME}
+      - Email__Password=${EMAIL_PASSWORD}
+      - Email__From=FreshMart <${EMAIL_USERNAME}>
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
+    depends_on:
+      sqlserver: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  review-service:
+    build:
+      context: ..
+      dockerfile: services/ReviewService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__ReviewDb=Server=sqlserver;Database=GroceryReviews;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Services__OrderService=http://order-service:8080
+    depends_on:
+      sqlserver: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  coupon-service:
+    build:
+      context: ..
+      dockerfile: services/CouponService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__CouponDb=Server=sqlserver;Database=GroceryCoupons;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+    depends_on:
+      sqlserver: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  ai-service:
+    build:
+      context: ..
+      dockerfile: services/AiService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+      - Gemini__ApiKey=${GEMINI_API_KEY}
+      - Services__ProductService=http://product-service:8080
+    depends_on:
+      product-service: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: services/UserService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__UserDb=Server=sqlserver;Database=GroceryAuth;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+    depends_on:
+      sqlserver: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
+  support-service:
+    build:
+      context: ..
+      dockerfile: services/SupportService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__SupportDb=Server=sqlserver;Database=GrocerySupport;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=GroceryPlatform
+      - Jwt__Audience=GroceryPlatformClients
+    depends_on:
+      sqlserver: { condition: service_healthy }
+    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
+
   api-gateway:
     build:
       context: ..
@@ -63,120 +353,29 @@ services:
     ports:
       - "5000:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
-      - Jwt__Issuer=GroceryPlatform
-      - Jwt__Audience=GroceryPlatformClients
-    depends_on: [auth-service, product-service, cart-service, order-service, payment-service, delivery-service]
-    networks: [grocery-net]
-
-  auth-service:
-    build:
-      context: ..
-      dockerfile: services/AuthService/Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__AuthDb=Server=sqlserver;Database=GroceryAuth;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
-      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
-      - Jwt__Issuer=GroceryPlatform
-      - Jwt__Audience=GroceryPlatformClients
-      - RabbitMQ__Host=rabbitmq
-      - RabbitMQ__Username=grocery
-      - RabbitMQ__Password=grocery123
-    depends_on:
-      sqlserver: { condition: service_healthy }
-      rabbitmq: { condition: service_healthy }
-    networks: [grocery-net]
-
-  product-service:
-    build:
-      context: ..
-      dockerfile: services/ProductService/Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__ProductDb=Server=sqlserver;Database=GroceryProducts;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
-      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
-      - Jwt__Issuer=GroceryPlatform
-      - Jwt__Audience=GroceryPlatformClients
-      - Redis__ConnectionString=redis:6379
-      - RabbitMQ__Host=rabbitmq
-      - RabbitMQ__Username=grocery
-      - RabbitMQ__Password=grocery123
-    depends_on:
-      sqlserver: { condition: service_healthy }
-      redis: { condition: service_healthy }
-      rabbitmq: { condition: service_healthy }
-    networks: [grocery-net]
-
-  cart-service:
-    build:
-      context: ..
-      dockerfile: services/CartService/Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - Redis__ConnectionString=redis:6379
-      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - Jwt__Secret=${JWT_SECRET}
       - Jwt__Issuer=GroceryPlatform
       - Jwt__Audience=GroceryPlatformClients
     depends_on:
-      redis: { condition: service_healthy }
+      auth-service: { condition: service_healthy }
+      product-service: { condition: service_healthy }
+      cart-service: { condition: service_healthy }
+      order-service: { condition: service_healthy }
+      payment-service: { condition: service_healthy }
+      notification-service: { condition: service_healthy }
+      review-service: { condition: service_healthy }
+      coupon-service: { condition: service_healthy }
+      ai-service: { condition: service_healthy }
+      user-service: { condition: service_healthy }
+      support-service: { condition: service_healthy }
     networks: [grocery-net]
-
-  order-service:
-    build:
-      context: ..
-      dockerfile: services/OrderService/Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__OrderDb=Server=sqlserver;Database=GroceryOrders;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
-      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
-      - Jwt__Issuer=GroceryPlatform
-      - Jwt__Audience=GroceryPlatformClients
-      - RabbitMQ__Host=rabbitmq
-      - RabbitMQ__Username=grocery
-      - RabbitMQ__Password=grocery123
-    depends_on:
-      sqlserver: { condition: service_healthy }
-      rabbitmq: { condition: service_healthy }
-    networks: [grocery-net]
-
-  payment-service:
-    build:
-      context: ..
-      dockerfile: services/PaymentService/Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__PaymentDb=Server=sqlserver;Database=GroceryPayments;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
-      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
-      - Jwt__Issuer=GroceryPlatform
-      - Jwt__Audience=GroceryPlatformClients
-      - Stripe__SecretKey=${STRIPE_SECRET_KEY}
-      - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET}
-      - RabbitMQ__Host=rabbitmq
-      - RabbitMQ__Username=grocery
-      - RabbitMQ__Password=grocery123
-    depends_on:
-      sqlserver: { condition: service_healthy }
-      rabbitmq: { condition: service_healthy }
-    networks: [grocery-net]
-
-  delivery-service:
-    build:
-      context: ..
-      dockerfile: services/DeliveryService/Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DeliveryDb=Server=sqlserver;Database=GroceryDelivery;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
-      - Jwt__Secret=your-super-secret-key-min-32-chars-long!!
-      - Jwt__Issuer=GroceryPlatform
-      - Jwt__Audience=GroceryPlatformClients
-      - RabbitMQ__Host=rabbitmq
-      - RabbitMQ__Username=grocery
-      - RabbitMQ__Password=grocery123
-    depends_on:
-      sqlserver: { condition: service_healthy }
-      rabbitmq: { condition: service_healthy }
-    networks: [grocery-net]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 15s
+      retries: 5
+      start_period: 30s
 
   # ─── Frontend ─────────────────────────────────────────────────────────────────
   frontend:
@@ -185,7 +384,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "4200:80"
-    environment:
-      - API_URL=http://localhost:5000
-    depends_on: [api-gateway]
+    depends_on:
+      api-gateway: { condition: service_healthy }
     networks: [grocery-net]

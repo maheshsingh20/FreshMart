@@ -87,7 +87,7 @@ export class AdminOrders implements OnInit {
   statuses = STATUSES;
 
   ngOnInit() {
-    this.orderService.getOrders().subscribe({
+    this.orderService.getAllOrders().subscribe({
       next: o => { this.allOrders.set(o); this.filtered.set(o); this.loading.set(false); },
       error: () => this.loading.set(false)
     });

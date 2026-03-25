@@ -8,6 +8,7 @@ public record ConfirmPaymentCommand(Guid OrderId) : ICommand;
 public record FailPaymentCommand(Guid OrderId) : ICommand;
 public record CancelOrderCommand(Guid OrderId, string Reason) : ICommand;
 public record DeliverOrderCommand(Guid OrderId) : ICommand;
+public record UpdateOrderStatusCommand(Guid OrderId, string Status) : ICommand;
 
 public class ConfirmPaymentHandler(IOrderRepository repo) : ICommandHandler<ConfirmPaymentCommand>
 {
@@ -40,6 +41,27 @@ public class CancelOrderHandler(IOrderRepository repo) : ICommandHandler<CancelO
         var order = await repo.GetByIdAsync(cmd.OrderId, ct);
         if (order is null) return Result.Failure("Order not found.");
         order.Cancel(cmd.Reason);
+        await repo.UpdateAsync(order, ct);
+        return Result.Success();
+    }
+}
+
+public class UpdateOrderStatusHandler(IOrderRepository repo) : ICommandHandler<UpdateOrderStatusCommand>
+{
+    public async Task<Result> Handle(UpdateOrderStatusCommand cmd, CancellationToken ct)
+    {
+        var order = await repo.GetByIdAsync(cmd.OrderId, ct);
+        if (order is null) return Result.Failure("Order not found.");
+
+        switch (cmd.Status)
+        {
+            case "Processing": order.StartProcessing(); break;
+            case "Shipped": order.Ship(); break;
+            case "OutForDelivery": order.OutForDelivery(); break;
+            case "Delivered": order.Deliver(); break;
+            default: return Result.Failure($"Unknown status: {cmd.Status}");
+        }
+
         await repo.UpdateAsync(order, ct);
         return Result.Success();
     }

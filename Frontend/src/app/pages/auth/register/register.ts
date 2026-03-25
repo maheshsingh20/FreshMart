@@ -63,15 +63,15 @@ declare const google: any;
             </div>
           </div>
 
-          <!-- Invite code (shown for non-Customer roles) -->
-          @if (form.role !== 'Customer') {
+          <!-- Invite code — only required for Admin -->
+          @if (form.role === 'Admin') {
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Invite Code
-                <span class="text-xs text-gray-400 font-normal ml-1">(required for {{ form.role }} role)</span>
+                Admin Invite Code
+                <span class="text-xs text-gray-400 font-normal ml-1">(required)</span>
               </label>
               <input type="text" name="inviteCode" [(ngModel)]="form.inviteCode" required
-                placeholder="Enter your invite code"
+                placeholder="Enter admin invite code"
                 class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition font-mono tracking-wider uppercase" />
             </div>
           }

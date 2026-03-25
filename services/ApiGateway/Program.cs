@@ -42,14 +42,27 @@ builder.Services.AddInMemoryRateLimiting();
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
+builder.Services.AddHealthChecks();
+
 builder.Services.AddCors(opt =>
     opt.AddPolicy("AllowFrontend", p =>
-        p.WithOrigins("http://localhost:4200").AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
+        p.WithOrigins("http://localhost:4200", "http://localhost:5000", "http://frontend")
+         .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseCors("AllowFrontend");
+
+// Allow Google OAuth popup postMessage (COOP default blocks it)
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["Cross-Origin-Opener-Policy"] = "unsafe-none";
+    ctx.Response.Headers["Cross-Origin-Embedder-Policy"] = "unsafe-none";
+    await next();
+});
+
+app.UseWebSockets();
 app.UseIpRateLimiting();
 app.UseAuthentication();
 app.UseAuthorization();

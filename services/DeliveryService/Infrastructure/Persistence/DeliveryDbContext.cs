@@ -15,6 +15,8 @@ public class DeliveryDbContext(DbContextOptions<DeliveryDbContext> options) : Db
             e.HasKey(x => x.Id);
             e.Property(x => x.DeliveryAddress).HasMaxLength(500).IsRequired();
             e.Property(x => x.Status).HasConversion<string>();
+            e.Property(x => x.DeliveryNotes).HasMaxLength(500);
+            e.Property(x => x.FailureReason).HasMaxLength(500);
             e.HasIndex(x => x.OrderId);
         });
 

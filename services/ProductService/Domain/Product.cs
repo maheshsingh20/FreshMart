@@ -19,6 +19,7 @@ public class Product : AggregateRoot
     public string? Brand { get; private set; }
     public decimal? Weight { get; private set; }
     public string? Unit { get; private set; } // kg, litre, piece
+    public decimal DiscountPercent { get; private set; }
 
     private Product() { }
 
@@ -62,8 +63,18 @@ public class Product : AggregateRoot
     }
 
     public void UpdatePrice(decimal price) { Price = price; SetUpdated(); }
+    public void SetDiscount(decimal percent) { DiscountPercent = Math.Clamp(percent, 0, 100); SetUpdated(); }
     public void Deactivate() { IsActive = false; SetUpdated(); }
     public void Activate() { IsActive = true; SetUpdated(); }
+
+    public void Update(string name, string description, decimal price, string imageUrl,
+        Guid categoryId, string? brand, string? unit, decimal? weight, bool isActive)
+    {
+        Name = name; Description = description; Price = price;
+        ImageUrl = imageUrl; CategoryId = categoryId;
+        Brand = brand; Unit = unit; Weight = weight; IsActive = isActive;
+        SetUpdated();
+    }
 }
 
 public class Category : Entity

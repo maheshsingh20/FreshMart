@@ -108,7 +108,7 @@ export class AdminDashboard implements OnInit {
   revenue = () => this.orders().filter(o => o.status === 'Delivered').reduce((s: number, o: any) => s + o.totalAmount, 0).toFixed(2);
 
   ngOnInit() {
-    this.orderService.getOrders().subscribe({ next: o => { this.orders.set(o); this.loading.set(false); }, error: () => this.loading.set(false) });
+    this.orderService.getAllOrders().subscribe({ next: o => { this.orders.set(o); this.loading.set(false); }, error: () => this.loading.set(false) });
     this.productService.getProducts({ pageSize: 1 }).subscribe(r => this.totalProducts.set(r.total));
     this.http.get<any>(`${environment.apiUrl}/api/v1/users/stats`).subscribe(s => this.totalUsers.set(s.total));
   }

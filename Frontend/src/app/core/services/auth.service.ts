@@ -89,11 +89,10 @@ export class AuthService {
     if (!token) return null;
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      // JwtRegisteredClaimNames.GivenName maps to 'given_name'
-      return payload['given_name']
-        ?? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname']
-        ?? payload['name']
-        ?? null;
+      const first = payload['firstName'] ?? payload['given_name'] ?? payload['name'] ?? '';
+      const last = payload['lastName'] ?? '';
+      const full = (first + ' ' + last).trim();
+      return full || null;
     } catch { return null; }
   }
 

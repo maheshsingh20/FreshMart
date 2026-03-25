@@ -14,8 +14,13 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Redis — cart is stored entirely in Redis
-var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConn));
+var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379,abortConnect=false";
+if (!redisConn.Contains("abortConnect")) redisConn += ",abortConnect=false";
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    try { return ConnectionMultiplexer.Connect(redisConn); }
+    catch { return ConnectionMultiplexer.Connect("localhost:6379,abortConnect=false"); }
+});
 builder.Services.AddScoped<ICartRepository, RedisCartRepository>();
 builder.Services.AddScoped<IProductCatalogClient, HttpProductCatalogClient>();
 builder.Services.AddScoped<ICartAppService, CartAppService>();
@@ -28,6 +33,7 @@ var jwtSecret = builder.Configuration["Jwt:Secret"]!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
+        opt.MapInboundClaims = false;
         opt.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,

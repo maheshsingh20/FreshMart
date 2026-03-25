@@ -12,6 +12,8 @@ public enum OrderStatus
 public class Order : AggregateRoot
 {
     public Guid CustomerId { get; private set; }
+    public string CustomerEmail { get; private set; } = "";
+    public string CustomerFirstName { get; private set; } = "";
     public OrderStatus Status { get; private set; } = OrderStatus.Pending;
     public decimal SubTotal { get; private set; }
     public decimal DeliveryFee { get; private set; }
@@ -30,11 +32,14 @@ public class Order : AggregateRoot
 
     public static Order Create(Guid customerId, string deliveryAddress,
         IEnumerable<(Guid ProductId, string Name, int Qty, decimal Price)> items,
-        decimal deliveryFee = 2.99m, decimal taxRate = 0.08m, string? notes = null)
+        decimal deliveryFee = 2.99m, decimal taxRate = 0.08m, string? notes = null,
+        string customerEmail = "", string customerFirstName = "")
     {
         var order = new Order
         {
             CustomerId = customerId,
+            CustomerEmail = customerEmail,
+            CustomerFirstName = customerFirstName,
             DeliveryAddress = deliveryAddress,
             DeliveryFee = deliveryFee,
             Notes = notes

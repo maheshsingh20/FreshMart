@@ -11,7 +11,9 @@ public record CreateOrderCommand(
     Guid CustomerId,
     string DeliveryAddress,
     List<OrderItemRequest> Items,
-    string? Notes) : ICommand<Guid>;
+    string? Notes,
+    string CustomerEmail = "",
+    string CustomerFirstName = "") : ICommand<Guid>;
 
 public record OrderItemRequest(Guid ProductId, string ProductName, int Quantity, decimal UnitPrice);
 
@@ -36,7 +38,8 @@ public class CreateOrderHandler(IOrderRepository repo, IEventPublisher events)
     public async Task<Result<Guid>> Handle(CreateOrderCommand cmd, CancellationToken ct)
     {
         var items = cmd.Items.Select(i => (i.ProductId, i.ProductName, i.Quantity, i.UnitPrice));
-        var order = Order.Create(cmd.CustomerId, cmd.DeliveryAddress, items, notes: cmd.Notes);
+        var order = Order.Create(cmd.CustomerId, cmd.DeliveryAddress, items, notes: cmd.Notes,
+            customerEmail: cmd.CustomerEmail, customerFirstName: cmd.CustomerFirstName);
 
         await repo.AddAsync(order, ct);
 

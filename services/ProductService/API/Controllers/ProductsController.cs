@@ -1,88 +1,144 @@
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProductService.Application.Commands;
-using ProductService.Application.Queries;
+using ProductService.Domain;
+using ProductService.Infrastructure.Persistence;
 
 namespace ProductService.API.Controllers;
 
 [ApiController]
 [Route("api/v1/products")]
-public class ProductsController(IMediator mediator) : ControllerBase
+public class ProductsController(IProductRepository repo) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetProducts(
-        [FromQuery] string? query, [FromQuery] Guid? categoryId,
+        [FromQuery] string? q, [FromQuery] Guid? categoryId,
         [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice,
         [FromQuery] string? sortBy, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var result = await mediator.Send(
-            new GetProductsQuery(query, categoryId, minPrice, maxPrice, sortBy, page, pageSize), ct);
-        return Ok(result);
+        var (items, total) = await repo.SearchAsync(q, categoryId, minPrice, maxPrice, sortBy, page, pageSize, ct);
+        return Ok(new { items = items.Select(ToDto), total, page, pageSize });
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetProduct(Guid id, CancellationToken ct)
     {
-        var result = await mediator.Send(new GetProductByIdQuery(id), ct);
-        return result is null ? NotFound() : Ok(result);
+        var p = await repo.GetByIdAsync(id, ct);
+        return p is null ? NotFound() : Ok(ToDto(p));
     }
 
-    [HttpPost]
-    [Authorize(Roles = "Admin,StoreManager")]
-    public async Task<IActionResult> CreateProduct([FromBody] CreateProductCommand cmd, CancellationToken ct)
+    [HttpGet("on-sale")]
+    public async Task<IActionResult> GetOnSale(CancellationToken ct)
     {
-        var result = await mediator.Send(cmd, ct);
-        if (!result.IsSuccess) return BadRequest(new { result.Error });
-        return CreatedAtAction(nameof(GetProduct), new { id = result.Value }, result.Value);
-    }
-
-    [HttpPut("{id:guid}/stock")]
-    [Authorize(Roles = "Admin,StoreManager")]
-    public async Task<IActionResult> UpdateStock(Guid id, [FromBody] UpdateStockRequest req, CancellationToken ct)
-    {
-        var result = await mediator.Send(new UpdateStockCommand(id, req.Quantity), ct);
-        if (!result.IsSuccess) return BadRequest(new { result.Error });
-        return NoContent();
+        var (items, _) = await repo.SearchAsync(null, null, null, null, null, 1, 1000, ct);
+        var onSale = items.Where(p => p.DiscountPercent > 0 && p.IsActive).ToList();
+        return Ok(onSale.Select(ToDto));
     }
 
     [HttpGet("low-stock")]
     [Authorize(Roles = "Admin,StoreManager")]
     public async Task<IActionResult> GetLowStock(CancellationToken ct)
     {
-        var result = await mediator.Send(new GetLowStockProductsQuery(), ct);
-        return Ok(result);
+        var (items, _) = await repo.SearchAsync(null, null, null, null, null, 1, 1000, ct);
+        return Ok(items.Where(p => p.StockQuantity <= 10).Select(ToDto));
+    }
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin,StoreManager")]
+    public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] UpdateProductRequest req, CancellationToken ct)
+    {
+        var p = await repo.GetByIdAsync(id, ct);
+        if (p is null) return NotFound();
+        p.Update(req.Name, req.Description, req.Price, req.ImageUrl,
+            req.CategoryId, req.Brand, req.Unit, req.Weight, req.IsActive);
+        p.SetDiscount(req.DiscountPercent);
+        await repo.UpdateAsync(p, ct);
+        return Ok(ToDto(p));
+    }
+
+    [HttpPatch("{id:guid}/discount")]
+    [Authorize(Roles = "Admin,StoreManager")]
+    public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateDiscountRequest req, CancellationToken ct)
+    {
+        var p = await repo.GetByIdAsync(id, ct);
+        if (p is null) return NotFound();
+        p.SetDiscount(req.DiscountPercent);
+        await repo.UpdateAsync(p, ct);
+        return NoContent();
+    }
+    [HttpGet("brands")]
+    public async Task<IActionResult> GetBrands([FromQuery] Guid? categoryId, CancellationToken ct)
+    {
+        var (items, _) = await repo.SearchAsync(null, categoryId, null, null, null, 1, 1000, ct);
+        var brands = items.Where(p => p.Brand != null).Select(p => p.Brand!).Distinct().OrderBy(b => b).ToList();
+        return Ok(brands);
     }
 
     [HttpGet("suggestions")]
-    public async Task<IActionResult> GetSuggestions(
-        [FromQuery] string? q, [FromQuery] string? ids, CancellationToken ct = default)
+    public async Task<IActionResult> GetSuggestions([FromQuery] string? ids, CancellationToken ct)
     {
-        var result = await mediator.Send(new GetSuggestionsQuery(q, ids), ct);
-        return Ok(result);
+        var (items, _) = await repo.SearchAsync(null, null, null, null, null, 1, 20, ct);
+        return Ok(items.Take(10).Select(p => new { p.Id, p.Name, p.Price, p.ImageUrl, Reason = "Popular" }));
     }
+
+    [HttpPost]
+    [Authorize(Roles = "Admin,StoreManager")]
+    public async Task<IActionResult> CreateProduct(CreateProductRequest req, CancellationToken ct)
+    {
+        var product = Product.Create(req.Name, req.Description, req.Price, req.Sku,
+            req.ImageUrl, req.CategoryId, req.StockQuantity, req.Brand, req.Weight, req.Unit);
+        await repo.AddAsync(product, ct);
+        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, ToDto(product));
+    }
+
+    [HttpPatch("{id:guid}/stock")]
+    [Authorize(Roles = "Admin,StoreManager")]
+    public async Task<IActionResult> UpdateStock(Guid id, [FromBody] UpdateStockRequest req, CancellationToken ct)
+    {
+        var p = await repo.GetByIdAsync(id, ct);
+        if (p is null) return NotFound();
+        p.UpdateStock(req.Quantity);
+        await repo.UpdateAsync(p, ct);
+        return NoContent();
+    }
+
+    private static object ToDto(Product p) => new
+    {
+        p.Id, p.Name, p.Description, p.Price, sku = p.SKU, p.ImageUrl,
+        categoryId = p.CategoryId, categoryName = p.Category?.Name,
+        p.StockQuantity, p.IsActive, p.AverageRating, p.Brand, p.Unit,
+        discountPercent = p.DiscountPercent,
+        discountedPrice = p.DiscountPercent > 0
+            ? Math.Round(p.Price * (1 - p.DiscountPercent / 100), 2)
+            : p.Price
+    };
 }
 
 [ApiController]
 [Route("api/v1/categories")]
-public class CategoriesController(IMediator mediator) : ControllerBase
+public class CategoriesController(IProductRepository repo) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetCategories(CancellationToken ct)
     {
-        var result = await mediator.Send(new GetCategoriesQuery(), ct);
-        return Ok(result);
+        var cats = await repo.GetCategoriesAsync(ct);
+        return Ok(cats.Select(c => new { c.Id, c.Name, c.Description, c.ImageUrl }));
     }
 
     [HttpPost]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryCommand cmd, CancellationToken ct)
+    public async Task<IActionResult> CreateCategory(CreateCategoryRequest req, CancellationToken ct)
     {
-        var result = await mediator.Send(cmd, ct);
-        if (!result.IsSuccess) return BadRequest(new { result.Error });
-        return Created("", result.Value);
+        var cat = Category.Create(req.Name, req.Description, req.ImageUrl);
+        await repo.AddCategoryAsync(cat, ct);
+        return CreatedAtAction(nameof(GetCategories), new { id = cat.Id }, new { cat.Id, cat.Name });
     }
 }
 
+public record CreateProductRequest(string Name, string Description, decimal Price, string Sku,
+    string ImageUrl, Guid CategoryId, int StockQuantity, string? Brand, decimal? Weight, string? Unit);
+public record UpdateProductRequest(string Name, string Description, decimal Price, string ImageUrl,
+    Guid CategoryId, string? Brand, string? Unit, decimal? Weight, decimal DiscountPercent, bool IsActive);
 public record UpdateStockRequest(int Quantity);
+public record UpdateDiscountRequest(decimal DiscountPercent);
+public record CreateCategoryRequest(string Name, string? Description, string? ImageUrl);

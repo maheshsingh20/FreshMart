@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { OrderService } from '../../core/services/order.service';
+import { InvoiceService } from '../../core/services/invoice.service';
 import { Order } from '../../core/models';
 
 const STEPS = [
@@ -44,9 +45,15 @@ const STEPS = [
                 <p class="text-xs text-gray-400 mb-1">Order ID</p>
                 <p class="font-mono font-bold text-gray-800 dark:text-gray-100">{{ order()!.id.slice(0,8).toUpperCase() }}</p>
               </div>
-              <span [class]="statusClass(order()!.status)" class="text-xs px-3 py-1 rounded-full font-semibold">
-                {{ order()!.status }}
-              </span>
+              <div class="flex flex-col items-end gap-2">
+                <span [class]="statusClass(order()!.status)" class="text-xs px-3 py-1 rounded-full font-semibold">
+                  {{ order()!.status }}
+                </span>
+                <button (click)="downloadInvoice()"
+                  class="text-xs text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 border border-gray-200 dark:border-gray-600 hover:border-green-500 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                  🧾 Invoice
+                </button>
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-4 text-sm">
               <div>
@@ -157,10 +164,13 @@ const STEPS = [
 export class OrderTracking implements OnInit {
   private route = inject(ActivatedRoute);
   private orderService = inject(OrderService);
+  private invoice = inject(InvoiceService);
 
   order = signal<Order | null>(null);
   loading = signal(true);
   steps = STEPS;
+
+  downloadInvoice() { if (this.order()) this.invoice.generate(this.order()!); }
 
   private statusIndex(status: string) {
     return STEPS.findIndex(s => s.key === status);

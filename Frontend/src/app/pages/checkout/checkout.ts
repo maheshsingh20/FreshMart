@@ -1,8 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { CartService } from '../../core/services/cart.service';
+import { AddressService, Address } from '../../core/services/address.service';
 import { Coupon } from '../../core/models';
 import { environment } from '../../../environments/environment';
 
@@ -82,12 +83,45 @@ import { environment } from '../../../environments/environment';
           </div>
         }
 
+        <!-- Saved addresses -->
+        @if (savedAddresses().length > 0) {
+          <div class="mb-5">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Saved Addresses</p>
+            <div class="space-y-2">
+              @for (addr of savedAddresses(); track addr.id) {
+                <button type="button" (click)="selectAddress(addr)"
+                  class="w-full text-left border rounded-xl px-4 py-3 transition"
+                  [class]="selectedAddressId() === addr.id
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700'">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ addr.label }}</span>
+                    @if (addr.isDefault) {
+                      <span class="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">Default</span>
+                    }
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {{ addr.line1 }}{{ addr.line2 ? ', ' + addr.line2 : '' }}, {{ addr.city }}, {{ addr.state }} - {{ addr.pincode }}, {{ addr.country }}
+                  </p>
+                </button>
+              }
+            </div>
+            <button type="button" (click)="selectedAddressId.set(null); address = ''"
+              class="mt-2 text-xs text-gray-500 dark:text-gray-400 hover:underline">
+              + Enter a different address
+            </button>
+          </div>
+        }
+
         <form (ngSubmit)="initiatePayment()" #f="ngForm" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery address</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {{ savedAddresses().length > 0 && selectedAddressId() ? 'Delivery address (selected above)' : 'Delivery address' }}
+            </label>
             <textarea name="address" [(ngModel)]="address" required rows="3"
-              placeholder="123 Main St, City, State, ZIP"
-              class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none transition"></textarea>
+              [placeholder]="savedAddresses().length > 0 && selectedAddressId() ? 'Using saved address above' : '123 Main St, City, State, ZIP'"
+              [disabled]="!!selectedAddressId()"
+              class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none transition disabled:opacity-60 disabled:cursor-not-allowed"></textarea>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
@@ -122,8 +156,9 @@ import { environment } from '../../../environments/environment';
     </div>
   `
 })
-export class Checkout {
+export class Checkout implements OnInit {
   private cartService = inject(CartService);
+  private addressService = inject(AddressService);
   private http = inject(HttpClient);
   private router = inject(Router);
 
@@ -135,6 +170,24 @@ export class Checkout {
   loading = signal(false);
   error = signal('');
   success = signal(false);
+  savedAddresses = signal<Address[]>([]);
+  selectedAddressId = signal<string | null>(null);
+
+  ngOnInit() {
+    this.addressService.getAll().subscribe({
+      next: list => {
+        this.savedAddresses.set(list);
+        const def = list.find(a => a.isDefault) ?? list[0];
+        if (def) this.selectAddress(def);
+      },
+      error: () => {} // not logged in or no addresses — fine
+    });
+  }
+
+  selectAddress(addr: Address) {
+    this.selectedAddressId.set(addr.id);
+    this.address = this.addressService.formatFull(addr);
+  }
 
   finalTotal() {
     const c = this.cart();
@@ -165,6 +218,7 @@ export class Checkout {
     const appliedCode = this.coupon()?.valid ? this.couponCode.toUpperCase() : undefined;
 
     this.http.post<any>(`${environment.apiUrl}/api/v1/orders/create-payment`, {
+      amount: this.finalTotal(),
       deliveryAddress: this.address,
       notes: this.notes || null,
       couponCode: appliedCode ?? null
@@ -215,15 +269,27 @@ export class Checkout {
     this.loading.set(true);
     this.error.set('');
 
+    const cartItems = (this.cart()?.items ?? []).map(i => ({
+      productId: i.productId,
+      productName: i.productName,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice
+    }));
+
     this.http.post<any>(`${environment.apiUrl}/api/v1/orders/verify-payment`, {
       razorpayOrderId: orderId,
       razorpayPaymentId: paymentId,
       razorpaySignature: signature,
       deliveryAddress: this.address,
       notes: this.notes || null,
-      couponCode: couponCode ?? null
+      couponCode: couponCode ?? null,
+      items: cartItems
     }).subscribe({
-      next: () => { this.success.set(true); this.loading.set(false); },
+      next: () => {
+        this.cartService.clearCart().subscribe();
+        this.success.set(true);
+        this.loading.set(false);
+      },
       error: (e) => {
         this.error.set(e.error?.error ?? 'Payment verification failed');
         this.loading.set(false);

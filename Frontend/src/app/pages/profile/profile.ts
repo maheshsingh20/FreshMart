@@ -8,11 +8,11 @@ import { OrderService } from '../../core/services/order.service';
 import { ProductService } from '../../core/services/product.service';
 import { WishlistService } from '../../core/services/wishlist.service';
 import { CartService } from '../../core/services/cart.service';
+import { AddressService, Address, AddressRequest } from '../../core/services/address.service';
 import { User, Order, Product } from '../../core/models';
 import { environment } from '../../../environments/environment';
 
 type Tab = 'overview' | 'orders' | 'wishlist' | 'addresses' | 'settings' | 'privacy';
-interface Address { id: string; label: string; line1: string; city: string; state: string; zip: string; isDefault: boolean; }
 
 @Component({
   selector: 'app-profile',
@@ -193,45 +193,108 @@ interface Address { id: string; label: string; line1: string; city: string; stat
           <div class="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
               <h2 class="font-semibold text-gray-800 dark:text-gray-100">Saved Addresses</h2>
-              <button (click)="showAddressForm.set(!showAddressForm())"
-                class="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition">
-                {{ showAddressForm() ? 'Cancel' : '+ Add Address' }}
-              </button>
+              <div class="flex gap-2">
+                <button (click)="autoDetectAddress()" [disabled]="detectingLocation()"
+                  class="text-sm border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition flex items-center gap-1.5 disabled:opacity-50">
+                  {{ detectingLocation() ? '&#x23F3; Detecting...' : '&#x1F4CD; Auto-detect' }}
+                </button>
+                <button (click)="openAddressForm()"
+                  class="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition">
+                  {{ showAddressForm() ? 'Cancel' : '+ Add Address' }}
+                </button>
+              </div>
             </div>
+
             @if (showAddressForm()) {
-              <div class="border border-green-200 dark:border-green-800 rounded-xl p-4 mb-4 bg-green-50 dark:bg-green-900/10">
+              <div class="border border-green-200 dark:border-green-800 rounded-xl p-4 mb-5 bg-green-50 dark:bg-green-900/10">
+                <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                  {{ editingAddressId() ? 'Edit Address' : 'New Address' }}
+                </p>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                  <input [(ngModel)]="newAddr.label" placeholder="Label (e.g. Home, Work)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
-                  <input [(ngModel)]="newAddr.line1" placeholder="Street address" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
-                  <input [(ngModel)]="newAddr.city" placeholder="City" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
-                  <input [(ngModel)]="newAddr.state" placeholder="State" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
-                  <input [(ngModel)]="newAddr.zip" placeholder="ZIP / Postal code" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
-                  <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
-                    <input type="checkbox" [(ngModel)]="newAddr.isDefault" class="rounded" /> Set as default
-                  </label>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Label *</label>
+                    <input [(ngModel)]="addrForm.label" placeholder="Home, Work, Other..."
+                      class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Street Address *</label>
+                    <input [(ngModel)]="addrForm.line1" placeholder="123 Main Street"
+                      class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                  </div>
+                  <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Apartment / Floor / Landmark</label>
+                    <input [(ngModel)]="addrForm.line2" placeholder="Apt 4B, Near City Mall..."
+                      class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">City *</label>
+                    <input [(ngModel)]="addrForm.city" placeholder="Mumbai"
+                      class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">State *</label>
+                    <input [(ngModel)]="addrForm.state" placeholder="Maharashtra"
+                      class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">PIN Code *</label>
+                    <input [(ngModel)]="addrForm.pincode" placeholder="400001" maxlength="10"
+                      class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Country *</label>
+                    <input [(ngModel)]="addrForm.country" placeholder="India"
+                      class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                  </div>
+                  <div class="sm:col-span-2">
+                    <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+                      <input type="checkbox" [(ngModel)]="addrForm.isDefault" class="rounded accent-green-600" />
+                      Set as default delivery address
+                    </label>
+                  </div>
                 </div>
-                <button (click)="saveAddress()" class="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-lg transition">Save Address</button>
+                <div class="flex gap-2">
+                  <button (click)="saveAddress()" [disabled]="addrSaving()"
+                    class="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-4 py-2 rounded-lg transition">
+                    {{ addrSaving() ? 'Saving...' : (editingAddressId() ? 'Update Address' : 'Save Address') }}
+                  </button>
+                  <button (click)="cancelAddressForm()" class="text-sm text-gray-500 dark:text-gray-400 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Cancel</button>
+                </div>
               </div>
             }
-            @if (addresses().length === 0) {
-              <div class="text-center py-10 text-gray-400"><p class="text-sm">No saved addresses yet</p></div>
+
+            @if (addrLoading()) {
+              <div class="space-y-3">@for (i of [1,2]; track i) { <div class="h-20 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse"></div> }</div>
+            } @else if (addresses().length === 0) {
+              <div class="text-center py-10 text-gray-400">
+                <p class="text-3xl mb-2">&#x1F4CD;</p>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No saved addresses yet</p>
+                <p class="text-xs text-gray-400 mt-1">Add an address to speed up checkout</p>
+              </div>
             } @else {
               <div class="space-y-3">
                 @for (addr of addresses(); track addr.id) {
-                  <div class="border rounded-xl p-4 flex items-start justify-between gap-3"
+                  <div class="border rounded-xl p-4"
                     [class]="addr.isDefault ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10' : 'border-gray-100 dark:border-gray-700'">
-                    <div>
-                      <div class="flex items-center gap-2 mb-1">
-                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ addr.label }}</p>
-                        @if (addr.isDefault) { <span class="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">Default</span> }
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                          <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ addr.label }}</p>
+                          @if (addr.isDefault) {
+                            <span class="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">Default</span>
+                          }
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ addr.line1 }}{{ addr.line2 ? ', ' + addr.line2 : '' }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-500">{{ addr.city }}, {{ addr.state }} - {{ addr.pincode }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">{{ addr.country }}</p>
                       </div>
-                      <p class="text-sm text-gray-600 dark:text-gray-400">{{ addr.line1 }}, {{ addr.city }}, {{ addr.state }} {{ addr.zip }}</p>
-                    </div>
-                    <div class="flex gap-2 shrink-0">
-                      @if (!addr.isDefault) {
-                        <button (click)="setDefaultAddress(addr.id)" class="text-xs text-green-600 dark:text-green-400 hover:underline">Set default</button>
-                      }
-                      <button (click)="deleteAddress(addr.id)" class="text-xs text-red-400 hover:text-red-600 transition">Delete</button>
+                      <div class="flex flex-col gap-1.5 shrink-0 items-end">
+                        <button (click)="editAddress(addr)" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Edit</button>
+                        @if (!addr.isDefault) {
+                          <button (click)="setDefaultAddress(addr.id)" class="text-xs text-green-600 dark:text-green-400 hover:underline">Set default</button>
+                        }
+                        <button (click)="deleteAddress(addr.id)" class="text-xs text-red-400 hover:text-red-600 transition">Delete</button>
+                      </div>
                     </div>
                   </div>
                 }
@@ -362,6 +425,7 @@ export class Profile implements OnInit {
   private productService = inject(ProductService);
   private wishlistService = inject(WishlistService);
   private cartService = inject(CartService);
+  private addressService = inject(AddressService);
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
 
@@ -396,9 +460,14 @@ export class Profile implements OnInit {
   pwCurrent = ''; pwNew = ''; pwConfirm = '';
   pwSaving = signal(false); pwSuccess = signal(false); pwError = signal('');
 
+  // Address state
   addresses = signal<Address[]>([]);
+  addrLoading = signal(false);
+  addrSaving = signal(false);
   showAddressForm = signal(false);
-  newAddr = { label: '', line1: '', city: '', state: '', zip: '', isDefault: false };
+  editingAddressId = signal<string | null>(null);
+  detectingLocation = signal(false);
+  addrForm: AddressRequest = this.emptyAddrForm();
 
   privacyPrefs = signal([
     { key: 'emailOrders',      label: 'Order Updates via Email',      description: 'Get notified when your order status changes.',       enabled: true  },
@@ -474,31 +543,83 @@ export class Profile implements OnInit {
   }
 
   loadAddresses() {
-    const saved = localStorage.getItem('user_addresses');
-    if (saved) this.addresses.set(JSON.parse(saved));
+    this.addrLoading.set(true);
+    this.addressService.getAll().subscribe({
+      next: list => { this.addresses.set(list); this.addrLoading.set(false); },
+      error: () => this.addrLoading.set(false)
+    });
+  }
+
+  emptyAddrForm(): AddressRequest {
+    return { label: '', line1: '', line2: '', city: '', state: '', pincode: '', country: 'India', isDefault: false };
+  }
+
+  openAddressForm() {
+    this.editingAddressId.set(null);
+    this.addrForm = this.emptyAddrForm();
+    this.showAddressForm.set(!this.showAddressForm());
+  }
+
+  editAddress(addr: Address) {
+    this.editingAddressId.set(addr.id);
+    this.addrForm = { label: addr.label, line1: addr.line1, line2: addr.line2 ?? '', city: addr.city, state: addr.state, pincode: addr.pincode, country: addr.country, isDefault: addr.isDefault };
+    this.showAddressForm.set(true);
+    setTimeout(() => document.querySelector('.border-green-200')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  cancelAddressForm() {
+    this.showAddressForm.set(false);
+    this.editingAddressId.set(null);
+    this.addrForm = this.emptyAddrForm();
   }
 
   saveAddress() {
-    if (!this.newAddr.label || !this.newAddr.line1 || !this.newAddr.city) { this.showToast('Please fill required fields'); return; }
-    const list = [...this.addresses()];
-    if (this.newAddr.isDefault) list.forEach(a => a.isDefault = false);
-    list.push({ ...this.newAddr, id: crypto.randomUUID() });
-    this.addresses.set(list);
-    localStorage.setItem('user_addresses', JSON.stringify(list));
-    this.newAddr = { label: '', line1: '', city: '', state: '', zip: '', isDefault: false };
-    this.showAddressForm.set(false);
-    this.showToast('Address saved');
+    if (!this.addrForm.label || !this.addrForm.line1 || !this.addrForm.city || !this.addrForm.state || !this.addrForm.pincode) {
+      this.showToast('Please fill all required fields'); return;
+    }
+    this.addrSaving.set(true);
+    const editId = this.editingAddressId();
+    const req$ = editId
+      ? this.addressService.update(editId, this.addrForm)
+      : this.addressService.save(this.addrForm);
+
+    req$.subscribe({
+      next: () => {
+        this.addrSaving.set(false);
+        this.cancelAddressForm();
+        this.loadAddresses();
+        this.showToast(editId ? 'Address updated' : 'Address saved');
+      },
+      error: () => { this.addrSaving.set(false); this.showToast('Failed to save address'); }
+    });
   }
 
   setDefaultAddress(id: string) {
-    const list = this.addresses().map(a => ({ ...a, isDefault: a.id === id }));
-    this.addresses.set(list); localStorage.setItem('user_addresses', JSON.stringify(list));
+    this.addressService.setDefault(id).subscribe({
+      next: () => this.loadAddresses(),
+      error: () => this.showToast('Failed to set default')
+    });
   }
 
   deleteAddress(id: string) {
-    const list = this.addresses().filter(a => a.id !== id);
-    this.addresses.set(list); localStorage.setItem('user_addresses', JSON.stringify(list));
-    this.showToast('Address removed');
+    this.addressService.delete(id).subscribe({
+      next: () => { this.addresses.update(list => list.filter(a => a.id !== id)); this.showToast('Address removed'); },
+      error: () => this.showToast('Failed to delete address')
+    });
+  }
+
+  async autoDetectAddress() {
+    this.detectingLocation.set(true);
+    try {
+      const detected = await this.addressService.autoDetect();
+      this.addrForm = { ...this.emptyAddrForm(), ...detected };
+      this.showAddressForm.set(true);
+      this.showToast('Location detected — review and save');
+    } catch (e: any) {
+      this.showToast('Could not detect location: ' + (e?.message ?? e));
+    } finally {
+      this.detectingLocation.set(false);
+    }
   }
 
   loadPrivacyPrefs() {

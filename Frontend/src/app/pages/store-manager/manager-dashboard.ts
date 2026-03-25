@@ -88,6 +88,6 @@ export class ManagerDashboard implements OnInit {
   ngOnInit() {
     this.productService.getProducts({ pageSize: 1 }).subscribe(r => this.totalProducts.set(r.total));
     this.productService.getLowStockProducts().subscribe(p => this.lowStock.set(p));
-    this.orderService.getOrders().subscribe(o => this.orders.set(o));
+    this.orderService.getAllOrders().subscribe(o => this.orders.set(o));
   }
 }

@@ -1,22 +1,50 @@
-# .NET
-Backend/bin/
-Backend/obj/
-Backend/.vs/
-Backend/*.db
-Backend/*.db-shm
-Backend/*.db-wal
-Backend/*.user
-**/*.user
+# ── Secrets (NEVER commit these) ─────────────────────────────
+.env
+infrastructure/.env
+**/appsettings.Development.json
+appsettings.Development.json
 
-# Angular / Node
+# ── .NET build output ─────────────────────────────────────────
+**/bin/
+**/obj/
+**/*.user
+**/.vs/
+TestResults/
+
+# ── Angular / Node ────────────────────────────────────────────
 Frontend/node_modules/
 Frontend/dist/
 Frontend/.angular/
+node_modules/
 
-# Environment / secrets
-appsettings.Development.json
-**/appsettings.Development.json
+# ── Docker ────────────────────────────────────────────────────
+**/.dockerignore
+docker-compose.override.yml
 
-# OS
+# ── Database files ────────────────────────────────────────────
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.mdf
+**/*.ldf
+
+# ── IDE / Editor ──────────────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.suo
+*.ncrunch*
+*.DotSettings.user
+
+# ── Logs ──────────────────────────────────────────────────────
+*.log
+logs/
+**/Logs/
+
+# ── OS ────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# ── Jenkins ───────────────────────────────────────────────────
+jenkins_home/

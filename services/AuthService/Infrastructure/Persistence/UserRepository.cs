@@ -15,7 +15,10 @@ public class UserRepository(AuthDbContext db) : IUserRepository
         db.Users.AnyAsync(u => u.Email == email.ToLowerInvariant(), ct);
 
     public Task<User?> GetByRefreshTokenAsync(string token, CancellationToken ct = default) =>
-        db.Users.FirstOrDefaultAsync(u => u.RefreshToken == token, ct);
+        db.Users.FirstOrDefaultAsync(u => u.RefreshToken == token && u.RefreshTokenExpiry > DateTime.UtcNow, ct);
+
+    public Task<User?> GetByGoogleIdAsync(string googleId, CancellationToken ct = default) =>
+        db.Users.FirstOrDefaultAsync(u => u.GoogleId == googleId, ct);
 
     public async Task AddAsync(User user, CancellationToken ct = default)
     {
