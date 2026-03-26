@@ -6,7 +6,7 @@ namespace AuthService.Infrastructure;
 /// <summary>
 /// Publishes all notification events via RabbitMQ.
 /// </summary>
-public class NotificationRelay(IMessageBus bus, ILogger<NotificationRelay> logger)
+public class NotificationRelay(IMessageBus bus, ILogger<NotificationRelay> logger) : INotificationRelay
 {
     public Task NotifyWelcomeAsync(Guid userId, string email, string firstName, CancellationToken ct = default)
         => Publish("user.registered", new { userId, email, firstName, occurredOn = DateTime.UtcNow }, ct);

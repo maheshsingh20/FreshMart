@@ -34,7 +34,7 @@ public class RegisterUserValidator : AbstractValidator<RegisterUserCommand>
 public class RegisterUserHandler(
     IUserRepository repo,
     IPasswordHasher hasher,
-    NotificationRelay notificationRelay)
+    INotificationRelay notificationRelay)
     : ICommandHandler<RegisterUserCommand, RegisterUserResponse>
 {
     public async Task<Result<RegisterUserResponse>> Handle(

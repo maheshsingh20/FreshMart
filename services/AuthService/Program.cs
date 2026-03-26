@@ -30,7 +30,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
 builder.Services.AddSingleton<IMessageBus, RabbitMqMessageBus>();
-builder.Services.AddScoped<NotificationRelay>();
+builder.Services.AddScoped<INotificationRelay, NotificationRelay>();
 builder.Services.AddHttpClient();
 
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;

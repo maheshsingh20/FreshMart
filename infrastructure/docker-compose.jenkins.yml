@@ -1,0 +1,23 @@
+networks:
+  grocery-net:
+    external: true
+    name: infrastructure_grocery-net
+
+volumes:
+  jenkins_home:
+
+services:
+  jenkins:
+    build:
+      context: ./jenkins          # builds from infrastructure/jenkins/Dockerfile
+      dockerfile: Dockerfile
+    container_name: jenkins
+    user: root                    # needed to access docker socket
+    ports:
+      - "8090:8080"               # Jenkins UI  → http://localhost:8090
+      - "50000:50000"             # Jenkins agent port
+    volumes:
+      - jenkins_home:/var/jenkins_home              # persist all Jenkins data
+      - /var/run/docker.sock:/var/run/docker.sock   # share host Docker daemon
+    networks: [grocery-net]
+    restart: unless-stopped

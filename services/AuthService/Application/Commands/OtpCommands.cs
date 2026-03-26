@@ -24,7 +24,7 @@ public class SendOtpValidator : AbstractValidator<SendOtpCommand>
 
 public class SendOtpHandler(
     IUserRepository repo,
-    NotificationRelay relay) : ICommandHandler<SendOtpCommand>
+    INotificationRelay relay) : ICommandHandler<SendOtpCommand>
 {
     public async Task<Result> Handle(SendOtpCommand cmd, CancellationToken ct)
     {
