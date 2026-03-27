@@ -9,6 +9,7 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timeout(time: 45, unit: 'MINUTES')
         disableConcurrentBuilds()
+        skipDefaultCheckout(false)
     }
 
     stages {
@@ -16,7 +17,17 @@ pipeline {
         // ── 1. Checkout ───────────────────────────────────────────────────────
         stage('Checkout') {
             steps {
-                checkout scm
+                // Clean workspace before checkout to prevent git object corruption
+                cleanWs()
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    extensions: [[$class: 'CleanBeforeCheckout']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/maheshsingh20/FreshMart.git',
+                        credentialsId: 'github-token'
+                    ]]
+                ])
                 echo "Branch: ${env.GIT_BRANCH} | Commit: ${env.GIT_COMMIT?.take(8)}"
             }
         }
