@@ -33,4 +33,7 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
 RUN node --version && npm --version && docker --version
 RUN dotnet --version
 
+# Give jenkins user access to docker socket
+RUN groupadd -f docker && usermod -aG docker jenkins
+
 USER jenkins
