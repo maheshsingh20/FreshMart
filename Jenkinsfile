@@ -84,19 +84,18 @@ JSONEOF
         // ── 5. Build Angular Frontend ─────────────────────────────────────────
         stage('Build Frontend') {
             steps {
-                // Extract frontend keys from the already-injected .env file
                 sh '''
-                    RAZORPAY_KEY=$(grep "^RAZORPAY_KEY_ID=" infrastructure/.env | cut -d= -f2)
-                    GOOGLE_CLIENT_ID=$(grep "^GOOGLE_CLIENT_ID=" infrastructure/.env | cut -d= -f2)
-                    sed -i "s|RAZORPAY_KEY_PLACEHOLDER|${RAZORPAY_KEY}|g" Frontend/src/environments/environment.ts
-                    sed -i "s|RAZORPAY_KEY_PLACEHOLDER|${RAZORPAY_KEY}|g" Frontend/src/environments/environment.prod.ts
-                    # Use python for Google Client ID replacement to avoid sed special char issues
+                    RAZORPAY_KEY=$(grep "^RAZORPAY_KEY_ID=" infrastructure/.env | cut -d= -f2 | tr -d '\\r\\n ')
+                    GOOGLE_CLIENT_ID=$(grep "^GOOGLE_CLIENT_ID=" infrastructure/.env | cut -d= -f2 | tr -d '\\r\\n ')
                     python3 -c "
-import re, sys
+razorpay = '${RAZORPAY_KEY}'
+google = '${GOOGLE_CLIENT_ID}'
 for f in ['Frontend/src/environments/environment.ts','Frontend/src/environments/environment.prod.ts']:
-    content = open(f).read()
-    content = content.replace('GOOGLE_CLIENT_ID_PLACEHOLDER', '${GOOGLE_CLIENT_ID}')
-    open(f,'w').write(content)
+    c = open(f).read()
+    c = c.replace('RAZORPAY_KEY_PLACEHOLDER', razorpay)
+    c = c.replace('GOOGLE_CLIENT_ID_PLACEHOLDER', google)
+    open(f,'w').write(c)
+print('Environment files updated')
 "
                 '''
                 dir('Frontend') {
