@@ -197,8 +197,12 @@ def dockerBuild(String service, String dockerfile) {
 
 def dockerBuildFrontend() {
     sh """
+        RAZORPAY_KEY=\$(grep "^RAZORPAY_KEY_ID=" infrastructure/.env | cut -d= -f2 | tr -d '\\r\\n ')
+        GOOGLE_CLIENT_ID=\$(grep "^GOOGLE_CLIENT_ID=" infrastructure/.env | cut -d= -f2 | tr -d '\\r\\n ')
         docker build \\
             -f Frontend/Dockerfile \\
+            --build-arg RAZORPAY_KEY=\${RAZORPAY_KEY} \\
+            --build-arg GOOGLE_CLIENT_ID=\${GOOGLE_CLIENT_ID} \\
             -t grocery/frontend:${env.BUILD_NUMBER} \\
             -t grocery/frontend:latest \\
             Frontend/
