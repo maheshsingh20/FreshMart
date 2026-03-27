@@ -29,36 +29,28 @@ pipeline {
                 withCredentials([file(credentialsId: 'grocery-env-file', variable: 'ENV_FILE')]) {
                     sh 'cp $ENV_FILE infrastructure/.env'
                     sh 'cp $ENV_FILE .env'
-                }
 
-                // Generate appsettings.Development.json files from env vars
-                // so dotnet build/test works without the gitignored dev configs
-                withCredentials([
-                    string(credentialsId: 'jwt-secret',       variable: 'JWT_SECRET'),
-                    string(credentialsId: 'rabbitmq-user',     variable: 'RABBITMQ_USER'),
-                    string(credentialsId: 'rabbitmq-pass',     variable: 'RABBITMQ_PASS'),
-                    string(credentialsId: 'email-username',    variable: 'EMAIL_USERNAME'),
-                    string(credentialsId: 'email-password',    variable: 'EMAIL_PASSWORD'),
-                    string(credentialsId: 'gemini-api-key',    variable: 'GEMINI_API_KEY'),
-                    string(credentialsId: 'razorpay-key-id',   variable: 'RAZORPAY_KEY_ID'),
-                    string(credentialsId: 'razorpay-key-secret', variable: 'RAZORPAY_KEY_SECRET')
-                ]) {
-                    // NotificationService dev config (needs email + rabbitmq)
+                    // Generate NotificationService dev config from the env file values
                     sh '''
-                        cat > services/NotificationService/appsettings.Development.json << EOF
+                        JWT_SECRET=$(grep "^JWT_SECRET=" infrastructure/.env | cut -d= -f2)
+                        RABBITMQ_USER=$(grep "^RABBITMQ_USER=" infrastructure/.env | cut -d= -f2)
+                        RABBITMQ_PASS=$(grep "^RABBITMQ_PASS=" infrastructure/.env | cut -d= -f2)
+                        EMAIL_USERNAME=$(grep "^EMAIL_USERNAME=" infrastructure/.env | cut -d= -f2)
+                        EMAIL_PASSWORD=$(grep "^EMAIL_PASSWORD=" infrastructure/.env | cut -d= -f2-)
+
+                        cat > services/NotificationService/appsettings.Development.json << JSONEOF
 {
   "ConnectionStrings": {
     "NotificationDb": "Server=.\\\\SQLEXPRESS;Database=GroceryNotifications;Trusted_Connection=True;TrustServerCertificate=True"
   },
-  "Jwt": { "Secret": "${JWT_SECRET}", "Issuer": "GroceryPlatform", "Audience": "GroceryPlatformClients" },
-  "RabbitMQ": { "Host": "localhost", "Port": "5672", "Username": "${RABBITMQ_USER}", "Password": "${RABBITMQ_PASS}", "VirtualHost": "/" },
-  "Email": { "Enabled": "true", "Host": "smtp.gmail.com", "Port": "587", "Username": "${EMAIL_USERNAME}", "Password": "${EMAIL_PASSWORD}", "From": "FreshMart <${EMAIL_USERNAME}>" },
+  "Jwt": { "Secret": "$JWT_SECRET", "Issuer": "GroceryPlatform", "Audience": "GroceryPlatformClients" },
+  "RabbitMQ": { "Host": "localhost", "Port": "5672", "Username": "$RABBITMQ_USER", "Password": "$RABBITMQ_PASS", "VirtualHost": "/" },
+  "Email": { "Enabled": "true", "Host": "smtp.gmail.com", "Port": "587", "Username": "$EMAIL_USERNAME", "Password": "$EMAIL_PASSWORD", "From": "FreshMart <$EMAIL_USERNAME>" },
   "Urls": "http://localhost:5007"
 }
-EOF
+JSONEOF
                     '''
                 }
-
                 echo "Secrets injected successfully"
             }
         }
