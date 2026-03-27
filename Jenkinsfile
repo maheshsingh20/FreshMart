@@ -90,8 +90,14 @@ JSONEOF
                     GOOGLE_CLIENT_ID=$(grep "^GOOGLE_CLIENT_ID=" infrastructure/.env | cut -d= -f2)
                     sed -i "s|RAZORPAY_KEY_PLACEHOLDER|${RAZORPAY_KEY}|g" Frontend/src/environments/environment.ts
                     sed -i "s|RAZORPAY_KEY_PLACEHOLDER|${RAZORPAY_KEY}|g" Frontend/src/environments/environment.prod.ts
-                    sed -i "s|GOOGLE_CLIENT_ID_PLACEHOLDER|${GOOGLE_CLIENT_ID}|g" Frontend/src/environments/environment.ts
-                    sed -i "s|GOOGLE_CLIENT_ID_PLACEHOLDER|${GOOGLE_CLIENT_ID}|g" Frontend/src/environments/environment.prod.ts
+                    # Use python for Google Client ID replacement to avoid sed special char issues
+                    python3 -c "
+import re, sys
+for f in ['Frontend/src/environments/environment.ts','Frontend/src/environments/environment.prod.ts']:
+    content = open(f).read()
+    content = content.replace('GOOGLE_CLIENT_ID_PLACEHOLDER', '${GOOGLE_CLIENT_ID}')
+    open(f,'w').write(content)
+"
                 '''
                 dir('Frontend') {
                     sh 'npm ci --prefer-offline'
@@ -140,6 +146,15 @@ JSONEOF
                 # Restore placeholder values in frontend env files
                 sed -i "s|rzp_test_[A-Za-z0-9]*|RAZORPAY_KEY_PLACEHOLDER|g" Frontend/src/environments/environment.ts || true
                 sed -i "s|rzp_test_[A-Za-z0-9]*|RAZORPAY_KEY_PLACEHOLDER|g" Frontend/src/environments/environment.prod.ts || true
+                python3 -c "
+import re
+for f in ['Frontend/src/environments/environment.ts','Frontend/src/environments/environment.prod.ts']:
+    try:
+        content = open(f).read()
+        content = re.sub(r'[0-9]+-[a-z0-9]+\\.apps\\.googleusercontent\\.com', 'GOOGLE_CLIENT_ID_PLACEHOLDER', content)
+        open(f,'w').write(content)
+    except: pass
+" || true
             '''
             cleanWs()
         }
