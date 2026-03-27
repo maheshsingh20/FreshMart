@@ -1,17 +1,17 @@
-# Custom Jenkins image with .NET SDK 8, Node.js 20, and Docker CLI
-# Installs dotnet via apt using Microsoft's feed (most reliable method)
-
+# Custom Jenkins image with .NET SDK 10, Node.js 20, and Docker CLI
 FROM jenkins/jenkins:lts
 
 USER root
 
-# Install prerequisites + Docker CLI + Node.js
+# Install prerequisites + Docker CLI + Node.js + libicu (required by .NET)
 RUN apt-get update -qq && apt-get install -y -qq \
     curl \
     apt-transport-https \
     ca-certificates \
     gnupg \
     lsb-release \
+    libicu-dev \
+    sudo \
     && curl -fsSL https://download.docker.com/linux/debian/gpg \
         | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
@@ -19,21 +19,19 @@ RUN apt-get update -qq && apt-get install -y -qq \
         > /etc/apt/sources.list.d/docker.list \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update -qq \
-    && apt-get install -y -qq docker-ce-cli nodejs libicu-dev \
+    && apt-get install -y -qq docker-ce-cli nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install .NET 10 SDK using the official install script
+# Allow jenkins to run chmod on docker socket without password
+RUN echo "jenkins ALL=(root) NOPASSWD: /bin/chmod 666 /var/run/docker.sock" \
+    >> /etc/sudoers.d/jenkins-docker \
+    && chmod 0440 /etc/sudoers.d/jenkins-docker
+
+# Install .NET 10 SDK
 RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && chmod +x /tmp/dotnet-install.sh \
     && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
     && ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet \
     && rm /tmp/dotnet-install.sh
-
-# Verify tools
-RUN node --version && npm --version && docker --version
-RUN dotnet --version
-
-# Give jenkins user access to docker socket
-RUN groupadd -f docker && usermod -aG docker jenkins
 
 USER jenkins

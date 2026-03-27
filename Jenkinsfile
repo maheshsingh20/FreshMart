@@ -106,6 +106,12 @@ print('Environment files updated')
         }
 
         // ── 6. Docker Build (parallel) ────────────────────────────────────────
+        stage('Fix Docker Socket') {
+            steps {
+                sh 'sudo chmod 666 /var/run/docker.sock'
+            }
+        }
+
         stage('Docker Build') {
             parallel {
                 stage('auth-service')         { steps { dockerBuild('auth-service',         'services/AuthService/Dockerfile')         } }
