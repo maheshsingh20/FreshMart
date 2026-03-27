@@ -1,23 +1,17 @@
 # Custom Jenkins image with .NET SDK 8, Node.js 20, and Docker CLI
-# Uses multi-stage build to copy dotnet from official image (no download needed)
+# Installs dotnet via apt using Microsoft's feed (most reliable method)
 
-# Stage 1: source of dotnet binaries
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet-source
-
-# Stage 2: Jenkins with all tools
 FROM jenkins/jenkins:lts
 
 USER root
 
-# Install prerequisites + libicu (required by .NET) + Docker CLI + Node.js
+# Install prerequisites + Docker CLI + Node.js
 RUN apt-get update -qq && apt-get install -y -qq \
     curl \
     apt-transport-https \
     ca-certificates \
     gnupg \
     lsb-release \
-    libicu-dev \
-    libssl-dev \
     && curl -fsSL https://download.docker.com/linux/debian/gpg \
         | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
@@ -25,17 +19,18 @@ RUN apt-get update -qq && apt-get install -y -qq \
         > /etc/apt/sources.list.d/docker.list \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update -qq \
-    && apt-get install -y -qq docker-ce-cli nodejs \
+    && apt-get install -y -qq docker-ce-cli nodejs libicu-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy .NET SDK from official image (avoids downloading 200MB during build)
-COPY --from=dotnet-source /usr/share/dotnet /usr/share/dotnet
-RUN ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet
+# Install .NET 10 SDK using the official install script
+RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+    && chmod +x /tmp/dotnet-install.sh \
+    && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
+    && ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet \
+    && rm /tmp/dotnet-install.sh
 
-# Set dotnet to use invariant globalization as fallback if ICU still missing
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
-
-# Verify all tools installed correctly
-RUN dotnet --version && node --version && npm --version && docker --version
+# Verify tools
+RUN node --version && npm --version && docker --version
+RUN dotnet --version
 
 USER jenkins

@@ -84,18 +84,15 @@ JSONEOF
         // ── 5. Build Angular Frontend ─────────────────────────────────────────
         stage('Build Frontend') {
             steps {
-                // Inject frontend keys into environment files before build
-                withCredentials([
-                    string(credentialsId: 'razorpay-key-id',   variable: 'RAZORPAY_KEY'),
-                    string(credentialsId: 'google-client-id',  variable: 'GOOGLE_CLIENT_ID')
-                ]) {
-                    sh '''
-                        sed -i "s|RAZORPAY_KEY_PLACEHOLDER|${RAZORPAY_KEY}|g" Frontend/src/environments/environment.ts
-                        sed -i "s|RAZORPAY_KEY_PLACEHOLDER|${RAZORPAY_KEY}|g" Frontend/src/environments/environment.prod.ts
-                        sed -i "s|GOOGLE_CLIENT_ID_PLACEHOLDER|${GOOGLE_CLIENT_ID}|g" Frontend/src/environments/environment.ts
-                        sed -i "s|GOOGLE_CLIENT_ID_PLACEHOLDER|${GOOGLE_CLIENT_ID}|g" Frontend/src/environments/environment.prod.ts
-                    '''
-                }
+                // Extract frontend keys from the already-injected .env file
+                sh '''
+                    RAZORPAY_KEY=$(grep "^RAZORPAY_KEY_ID=" infrastructure/.env | cut -d= -f2)
+                    GOOGLE_CLIENT_ID=$(grep "^GOOGLE_CLIENT_ID=" infrastructure/.env | cut -d= -f2)
+                    sed -i "s|RAZORPAY_KEY_PLACEHOLDER|${RAZORPAY_KEY}|g" Frontend/src/environments/environment.ts
+                    sed -i "s|RAZORPAY_KEY_PLACEHOLDER|${RAZORPAY_KEY}|g" Frontend/src/environments/environment.prod.ts
+                    sed -i "s|GOOGLE_CLIENT_ID_PLACEHOLDER|${GOOGLE_CLIENT_ID}|g" Frontend/src/environments/environment.ts
+                    sed -i "s|GOOGLE_CLIENT_ID_PLACEHOLDER|${GOOGLE_CLIENT_ID}|g" Frontend/src/environments/environment.prod.ts
+                '''
                 dir('Frontend') {
                     sh 'npm ci --prefer-offline'
                     sh 'npm run build -- --configuration production'
