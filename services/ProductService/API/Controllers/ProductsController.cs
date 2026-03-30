@@ -102,6 +102,21 @@ public class ProductsController(IProductRepository repo) : ControllerBase
         return NoContent();
     }
 
+    // Called by OrderService when an order is placed — deducts stock atomically
+    [HttpPatch("{id:guid}/deduct-stock")]
+    public async Task<IActionResult> DeductStock(Guid id, [FromBody] DeductStockRequest req, CancellationToken ct)
+    {
+        var p = await repo.GetByIdAsync(id, ct);
+        if (p is null) return NotFound();
+
+        if (p.StockQuantity < req.Quantity)
+            return BadRequest(new { error = $"Insufficient stock. Available: {p.StockQuantity}, Requested: {req.Quantity}" });
+
+        p.DeductStock(req.Quantity);
+        await repo.UpdateAsync(p, ct);
+        return NoContent();
+    }
+
     private static object ToDto(Product p) => new
     {
         p.Id, p.Name, p.Description, p.Price, sku = p.SKU, p.ImageUrl,
@@ -140,5 +155,6 @@ public record CreateProductRequest(string Name, string Description, decimal Pric
 public record UpdateProductRequest(string Name, string Description, decimal Price, string ImageUrl,
     Guid CategoryId, string? Brand, string? Unit, decimal? Weight, decimal DiscountPercent, bool IsActive);
 public record UpdateStockRequest(int Quantity);
+public record DeductStockRequest(int Quantity);
 public record UpdateDiscountRequest(decimal DiscountPercent);
 public record CreateCategoryRequest(string Name, string? Description, string? ImageUrl);

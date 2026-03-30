@@ -31,6 +31,12 @@ import { CartService } from '../../core/services/cart.service';
           </div>
         }
 
+        @if (stockError()) {
+          <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg px-4 py-3 mb-4 text-sm">
+            ❌ {{ stockError() }}
+          </div>
+        }
+
         <div class="space-y-3 mb-6">
           @for (item of cart()!.items; track item.productId) {
             <div class="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 flex items-center gap-4">
@@ -105,6 +111,7 @@ export class CartPage implements OnInit {
   cart = this.cartService.cart;
   loading = signal(true);
   budgetInput: number | null = null;
+  stockError = signal(''); // shows "Out of Stock" message
 
   ngOnInit() {
     this.cartService.getCart().subscribe({ next: () => this.loading.set(false), error: () => this.loading.set(false) });
@@ -112,10 +119,21 @@ export class CartPage implements OnInit {
 
   update(productId: string, qty: number) {
     if (qty <= 0) { this.remove(productId); return; }
-    this.cartService.updateItem(productId, qty).subscribe();
+    this.stockError.set('');
+    this.cartService.updateItem(productId, qty).subscribe({
+      error: (e) => {
+        const msg = e?.error?.error ?? 'Not enough stock available.';
+        this.stockError.set(msg);
+        // Reload cart to restore correct quantity
+        this.cartService.getCart().subscribe();
+      }
+    });
   }
 
-  remove(productId: string) { this.cartService.removeItem(productId).subscribe(); }
+  remove(productId: string) {
+    this.stockError.set('');
+    this.cartService.removeItem(productId).subscribe();
+  }
 
   saveBudget() {
     this.cartService.setBudget(this.budgetInput).subscribe(() => this.cartService.getCart().subscribe());

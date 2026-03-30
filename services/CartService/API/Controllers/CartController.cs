@@ -25,9 +25,16 @@ public class CartController(ICartAppService cartService) : ControllerBase
     [HttpPost("items")]
     public async Task<IActionResult> AddItem(AddItemRequest req, CancellationToken ct)
     {
-        var cart = await cartService.AddItemAsync(UserId, req.ProductId, req.ProductName,
-            req.UnitPrice, req.ImageUrl ?? "", req.Quantity, ct);
-        return Ok(MapCart(cart));
+        try
+        {
+            var cart = await cartService.AddItemAsync(UserId, req.ProductId, req.ProductName,
+                req.UnitPrice, req.ImageUrl ?? "", req.Quantity, ct);
+            return Ok(MapCart(cart));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpDelete("items/{productId:guid}")]
@@ -40,8 +47,15 @@ public class CartController(ICartAppService cartService) : ControllerBase
     [HttpPatch("items/{productId:guid}")]
     public async Task<IActionResult> UpdateQuantity(Guid productId, UpdateQuantityRequest req, CancellationToken ct)
     {
-        var cart = await cartService.UpdateQuantityAsync(UserId, productId, req.Quantity, ct);
-        return Ok(MapCart(cart));
+        try
+        {
+            var cart = await cartService.UpdateQuantityAsync(UserId, productId, req.Quantity, ct);
+            return Ok(MapCart(cart));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpDelete]
