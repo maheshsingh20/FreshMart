@@ -1,3 +1,38 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// FreshMart — Jenkins CI/CD Pipeline
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// PURPOSE:
+//   Automates the full build, test, and deploy cycle for the FreshMart platform.
+//   Triggered manually (Build Now) or automatically via GitHub webhook on push.
+//
+// PIPELINE STAGES:
+//   1. Checkout       — clean clone from GitHub (prevents git cache corruption)
+//   2. Inject Secrets — copies .env from Jenkins credentials, generates dev configs
+//   3. Build .NET     — dotnet restore + build all 15 projects
+//   4. Test .NET      — runs 30 NUnit unit tests, publishes JUnit results
+//   5. Build Frontend — npm ci + ng build --configuration production
+//   6. Fix Docker Socket — chmod 666 /var/run/docker.sock (Jenkins runs as root)
+//   7. Docker Build   — builds all 14 service images in parallel
+//   8. Deploy         — docker compose up -d (starts all containers)
+//
+// SECRETS MANAGEMENT:
+//   - Only ONE credential needed: 'grocery-env-file' (Secret file in Jenkins)
+//   - All other secrets (JWT, RabbitMQ, email, Razorpay, Gemini) are extracted
+//     from the .env file at build time — no individual credentials needed
+//   - Secrets are deleted from workspace in post { always { ... } }
+//
+// DOCKER BUILD:
+//   - All 14 images built in parallel to save time
+//   - Frontend image receives RAZORPAY_KEY and GOOGLE_CLIENT_ID as --build-arg
+//     so they are baked into the Angular bundle at build time
+//   - Images tagged as grocery/<service>:<build-number> and grocery/<service>:latest
+//
+// REQUIREMENTS:
+//   Jenkins image must have: dotnet 10, node 20, docker CLI, python3
+//   See infrastructure/jenkins/Dockerfile
+// ═══════════════════════════════════════════════════════════════════════════════
+
 pipeline {
     agent any
 

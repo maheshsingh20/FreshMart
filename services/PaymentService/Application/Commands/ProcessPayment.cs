@@ -9,6 +9,11 @@ using DomainPaymentMethod = PaymentService.Domain.PaymentMethod;
 
 namespace PaymentService.Application.Commands;
 
+// ─── Razorpay Payment Flow ────────────────────────────────────────────────────
+// Step 1 — ProcessPayment: creates Razorpay order, returns order ID + key to frontend
+// Step 2 — VerifyPayment: verifies HMAC signature, marks payment complete
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Step 1: Create a Razorpay order and return the order id + key to the frontend
 public record ProcessPaymentCommand(
     Guid OrderId,

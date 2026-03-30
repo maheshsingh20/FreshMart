@@ -1,3 +1,36 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# FreshMart — Docker Compose Stack
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# PURPOSE:
+#   Defines and orchestrates all containers for the FreshMart microservices
+#   platform. A single `docker compose up -d` starts the entire stack.
+#
+# ARCHITECTURE:
+#   Infrastructure:  SQL Server, Redis, RabbitMQ
+#   Microservices:   13 .NET services (auth, product, order, payment, etc.)
+#   Gateway:         YARP reverse proxy (api-gateway) on port 5000
+#   Frontend:        Angular app served by nginx on port 4200
+#
+# NETWORKING:
+#   All containers share the `grocery-net` bridge network so they can
+#   communicate by service name (e.g. http://auth-service:8080).
+#   Only the gateway (5000) and frontend (4200) are exposed to the host.
+#
+# SECRETS:
+#   All sensitive values come from infrastructure/.env (gitignored).
+#   See .env.example for required variables.
+#
+# HEALTH CHECKS:
+#   Each service has a health check. Dependent services wait for their
+#   dependencies to be healthy before starting (depends_on: condition: service_healthy).
+#
+# USAGE:
+#   Start:   docker compose -f infrastructure/docker-compose.yml up -d
+#   Stop:    docker compose -f infrastructure/docker-compose.yml down
+#   Logs:    docker compose -f infrastructure/docker-compose.yml logs -f <service>
+# ═══════════════════════════════════════════════════════════════════════════════
+
 networks:
   grocery-net:
     driver: bridge
