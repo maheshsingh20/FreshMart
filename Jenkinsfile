@@ -142,13 +142,15 @@ print('Environment files updated')
             }
         }
 
-        // ── 7. Deploy (main branch only) ──────────────────────────────────────
+        // ── 7. Deploy ─────────────────────────────────────────────────────────
         stage('Deploy') {
-            when {
-                anyOf { branch 'main'; branch 'master' }
-            }
             steps {
-                sh 'docker compose -f $COMPOSE_FILE up -d --remove-orphans'
+                withCredentials([file(credentialsId: 'grocery-env-file', variable: 'ENV_FILE')]) {
+                    sh '''
+                        cp $ENV_FILE infrastructure/.env
+                        docker compose -f infrastructure/docker-compose.yml up -d --remove-orphans
+                    '''
+                }
             }
         }
     }
