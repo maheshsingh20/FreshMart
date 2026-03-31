@@ -28,7 +28,8 @@ public class CartController(ICartAppService cartService) : ControllerBase
         try
         {
             var cart = await cartService.AddItemAsync(UserId, req.ProductId, req.ProductName,
-                req.UnitPrice, req.ImageUrl ?? "", req.Quantity, ct);
+                req.UnitPrice, req.ImageUrl ?? "", req.Quantity,
+                req.OriginalPrice ?? req.UnitPrice, req.DiscountPercent ?? 0, ct);
             return Ok(MapCart(cart));
         }
         catch (InvalidOperationException ex)
@@ -90,8 +91,9 @@ public class CartController(ICartAppService cartService) : ControllerBase
             imageUrl = i.ImageUrl,
             quantity = i.Quantity,
             totalPrice = i.TotalPrice,
-            discountPercent = 0,
-            originalPrice = i.UnitPrice
+            originalPrice = i.OriginalPrice,
+            originalTotalPrice = i.OriginalTotalPrice,
+            discountPercent = i.DiscountPercent
         }),
         budgetLimit = cart.BudgetLimit,
         lastUpdated = cart.LastUpdated,
@@ -101,6 +103,7 @@ public class CartController(ICartAppService cartService) : ControllerBase
     };
 }
 
-public record AddItemRequest(Guid ProductId, string ProductName, decimal UnitPrice, string? ImageUrl, int Quantity = 1);
+public record AddItemRequest(Guid ProductId, string ProductName, decimal UnitPrice, string? ImageUrl,
+    int Quantity = 1, decimal? OriginalPrice = null, decimal? DiscountPercent = null);
 public record UpdateQuantityRequest(int Quantity);
 public record SetBudgetRequest(decimal? Budget);

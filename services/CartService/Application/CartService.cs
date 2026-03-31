@@ -6,7 +6,8 @@ namespace CartService.Application;
 public interface ICartAppService
 {
     Task<Cart> GetCartAsync(Guid customerId, CancellationToken ct = default);
-    Task<Cart> AddItemAsync(Guid customerId, Guid productId, string name, decimal price, string imageUrl, int qty, CancellationToken ct = default);
+    Task<Cart> AddItemAsync(Guid customerId, Guid productId, string name, decimal price, string imageUrl, int qty,
+        decimal originalPrice = 0, decimal discountPercent = 0, CancellationToken ct = default);
     Task<Cart> RemoveItemAsync(Guid customerId, Guid productId, CancellationToken ct = default);
     Task<Cart> UpdateQuantityAsync(Guid customerId, Guid productId, int quantity, CancellationToken ct = default);
     Task<Cart> SetBudgetAsync(Guid customerId, decimal? budget, CancellationToken ct = default);
@@ -30,7 +31,8 @@ public class CartAppService(ICartRepository repo, IProductCatalogClient productC
     }
 
     public async Task<Cart> AddItemAsync(Guid customerId, Guid productId, string name,
-        decimal price, string imageUrl, int qty, CancellationToken ct = default)
+        decimal price, string imageUrl, int qty,
+        decimal originalPrice = 0, decimal discountPercent = 0, CancellationToken ct = default)
     {
         // Check stock before adding
         var stock = await productClient.GetStockAsync(productId, ct);
@@ -39,7 +41,7 @@ public class CartAppService(ICartRepository repo, IProductCatalogClient productC
         if (existingQty + qty > stock)
             throw new InvalidOperationException($"Only {stock} unit(s) available in stock.");
 
-        cart.AddItem(productId, name, price, imageUrl, qty);
+        cart.AddItem(productId, name, price, imageUrl, qty, originalPrice, discountPercent);
         await repo.SaveAsync(cart, ct);
         return cart;
     }

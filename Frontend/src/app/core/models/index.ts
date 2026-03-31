@@ -50,6 +50,7 @@ export interface CartItem {
   totalPrice: number;
   discountPercent: number;
   originalPrice: number;
+  originalTotalPrice: number;
 }
 
 export interface Cart {

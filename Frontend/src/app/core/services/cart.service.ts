@@ -24,6 +24,8 @@ export class CartService {
           productId,
           productName: p.name,
           unitPrice: p.discountedPrice ?? p.price,
+          originalPrice: p.price,
+          discountPercent: p.discountPercent ?? 0,
           imageUrl: p.imageUrl,
           quantity
         })

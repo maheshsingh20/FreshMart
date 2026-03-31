@@ -11,13 +11,14 @@ public class Cart
     public bool IsOverBudget => BudgetLimit.HasValue && SubTotal > BudgetLimit;
     public int TotalItems => Items.Sum(i => i.Quantity);
 
-    public void AddItem(Guid productId, string name, decimal price, string imageUrl, int quantity = 1)
+    public void AddItem(Guid productId, string name, decimal price, string imageUrl, int quantity = 1,
+        decimal originalPrice = 0, decimal discountPercent = 0)
     {
         var existing = Items.FirstOrDefault(i => i.ProductId == productId);
         if (existing is not null)
             existing.Quantity += quantity;
         else
-            Items.Add(new CartItem(productId, name, price, imageUrl, quantity));
+            Items.Add(new CartItem(productId, name, price, imageUrl, quantity, originalPrice, discountPercent));
 
         LastUpdated = DateTime.UtcNow;
     }
@@ -50,12 +51,17 @@ public class Cart
     }
 }
 
-public class CartItem(Guid productId, string name, decimal price, string imageUrl, int quantity)
+public class CartItem(Guid productId, string name, decimal price, string imageUrl, int quantity,
+    decimal originalPrice = 0, decimal discountPercent = 0)
 {
     public Guid ProductId { get; set; } = productId;
     public string ProductName { get; set; } = name;
     public decimal UnitPrice { get; set; } = price;
     public string ImageUrl { get; set; } = imageUrl;
     public int Quantity { get; set; } = quantity;
+    // Original (pre-discount) price — equals UnitPrice when no discount
+    public decimal OriginalPrice { get; set; } = originalPrice > 0 ? originalPrice : price;
+    public decimal DiscountPercent { get; set; } = discountPercent;
     public decimal TotalPrice => UnitPrice * Quantity;
+    public decimal OriginalTotalPrice => OriginalPrice * Quantity;
 }

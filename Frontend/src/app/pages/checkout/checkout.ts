@@ -358,9 +358,18 @@ const INDIAN_STATES = [
                 @if (cart()) {
                   <div class="space-y-2 mb-4 max-h-52 overflow-y-auto pr-1">
                     @for (item of cart()!.items; track item.productId) {
-                      <div class="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                        <span class="truncate mr-2">{{ item.productName }} <span class="text-gray-400">×{{ item.quantity }}</span></span>
-                        <span class="shrink-0 font-medium text-gray-800 dark:text-gray-200">&#x20B9;{{ item.totalPrice.toFixed(2) }}</span>
+                      <div class="flex justify-between items-start text-xs gap-2">
+                        <span class="text-gray-600 dark:text-gray-400 truncate mr-1">
+                          {{ item.productName }} <span class="text-gray-400">×{{ item.quantity }}</span>
+                        </span>
+                        <div class="shrink-0 text-right">
+                          @if (item.discountPercent > 0) {
+                            <span class="line-through text-gray-400 block">&#x20B9;{{ item.originalTotalPrice.toFixed(2) }}</span>
+                          }
+                          <span class="font-medium" [class]="item.discountPercent > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-800 dark:text-gray-200'">
+                            &#x20B9;{{ item.totalPrice.toFixed(2) }}
+                          </span>
+                        </div>
                       </div>
                     }
                   </div>
@@ -368,6 +377,11 @@ const INDIAN_STATES = [
                     <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                       <span>Subtotal</span><span>&#x20B9;{{ cart()!.subTotal.toFixed(2) }}</span>
                     </div>
+                    @if (totalSavings() > 0) {
+                      <div class="flex justify-between text-xs text-green-600 dark:text-green-400 font-medium">
+                        <span>You save</span><span>- &#x20B9;{{ totalSavings().toFixed(2) }}</span>
+                      </div>
+                    }
                     <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                       <span>Delivery</span>
                       <span [class]="cart()!.subTotal >= 500 ? 'text-green-600 dark:text-green-400 font-medium' : ''">
@@ -564,6 +578,12 @@ export class Checkout implements OnInit {
     const tax = c.subTotal * 0.05;
     const discount = this.coupon()?.valid ? (this.coupon()!.discountAmount ?? 0) : 0;
     return Math.max(0, c.subTotal + delivery + tax - discount);
+  }
+
+  totalSavings() {
+    const c = this.cart();
+    if (!c) return 0;
+    return c.items.reduce((sum, i) => sum + (i.originalTotalPrice - i.totalPrice), 0);
   }
 
   validateCoupon() {
