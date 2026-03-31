@@ -421,7 +421,7 @@ export class Products implements OnInit {
 
   private loadAll() {
     this.loading.set(true);
-    this.productService.getProducts({ pageSize: 100 }).subscribe({
+    this.productService.getProducts({ pageSize: 200, sortBy: this.sortBy || undefined }).subscribe({
       next: r => { this.products.set(r.items); this.total.set(r.total); this.loading.set(false); },
       error: () => this.loading.set(false)
     });
@@ -430,10 +430,14 @@ export class Products implements OnInit {
   load() {
     this.loading.set(true);
     this.productService.getProducts({
-      query: this.query || undefined, categoryId: this.categoryId || undefined,
-      sortBy: this.sortBy || undefined, minPrice: this.minPrice() ?? undefined,
-      maxPrice: this.maxPrice() ?? undefined, brand: this.selectedBrand || undefined,
-      page: this.page(), pageSize: 20
+      query: this.query || undefined,
+      categoryId: this.categoryId || undefined,
+      sortBy: this.sortBy || undefined,
+      minPrice: this.minPrice() ?? undefined,
+      maxPrice: this.maxPrice() ?? undefined,
+      brand: this.selectedBrand || undefined,
+      page: this.page(),
+      pageSize: 20
     }).subscribe({
       next: r => { this.products.set(r.items); this.total.set(r.total); this.loading.set(false); },
       error: () => this.loading.set(false)

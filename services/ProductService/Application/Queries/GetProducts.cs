@@ -18,7 +18,7 @@ public record CategoryDto(Guid Id, string Name, string? Description, string? Ima
 // Queries
 public record GetProductsQuery(
     string? Query, Guid? CategoryId, decimal? MinPrice, decimal? MaxPrice,
-    string? SortBy, int Page = 1, int PageSize = 20) : IQuery<ProductListResponse>;
+    string? SortBy, string? Brand = null, int Page = 1, int PageSize = 20) : IQuery<ProductListResponse>;
 
 public record GetProductByIdQuery(Guid ProductId) : IQuery<ProductDto?>;
 public record GetCategoriesQuery : IQuery<IEnumerable<CategoryDto>>;
@@ -30,7 +30,7 @@ public class GetProductsHandler(IProductRepository repo, IConnectionMultiplexer 
 {
     public async Task<ProductListResponse> Handle(GetProductsQuery q, CancellationToken ct)
     {
-        var cacheKey = $"products:{q.Query}:{q.CategoryId}:{q.MinPrice}:{q.MaxPrice}:{q.SortBy}:{q.Page}:{q.PageSize}";
+        var cacheKey = $"products:{q.Query}:{q.CategoryId}:{q.MinPrice}:{q.MaxPrice}:{q.SortBy}:{q.Brand}:{q.Page}:{q.PageSize}";
         var db = redis.GetDatabase();
         var cached = await db.StringGetAsync(cacheKey);
 
@@ -38,7 +38,7 @@ public class GetProductsHandler(IProductRepository repo, IConnectionMultiplexer 
             return JsonConvert.DeserializeObject<ProductListResponse>(cached!)!;
 
         var (items, total) = await repo.SearchAsync(
-            q.Query, q.CategoryId, q.MinPrice, q.MaxPrice, q.SortBy, q.Page, q.PageSize, ct);
+            q.Query, q.CategoryId, q.MinPrice, q.MaxPrice, q.SortBy, q.Page, q.PageSize, ct, q.Brand);
 
         var response = new ProductListResponse(
             items.Select(MapToDto), total, q.Page, q.PageSize);

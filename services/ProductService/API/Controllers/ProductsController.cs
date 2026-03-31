@@ -11,12 +11,13 @@ public class ProductsController(IProductRepository repo) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetProducts(
-        [FromQuery] string? q, [FromQuery] Guid? categoryId,
+        [FromQuery] string? query, [FromQuery] Guid? categoryId,
         [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice,
-        [FromQuery] string? sortBy, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? sortBy, [FromQuery] string? brand,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var (items, total) = await repo.SearchAsync(q, categoryId, minPrice, maxPrice, sortBy, page, pageSize, ct);
+        var (items, total) = await repo.SearchAsync(query, categoryId, minPrice, maxPrice, sortBy, page, pageSize, ct, brand);
         return Ok(new { items = items.Select(ToDto), total, page, pageSize });
     }
 
@@ -70,15 +71,18 @@ public class ProductsController(IProductRepository repo) : ControllerBase
     public async Task<IActionResult> GetBrands([FromQuery] Guid? categoryId, CancellationToken ct)
     {
         var (items, _) = await repo.SearchAsync(null, categoryId, null, null, null, 1, 1000, ct);
-        var brands = items.Where(p => p.Brand != null).Select(p => p.Brand!).Distinct().OrderBy(b => b).ToList();
+        var brands = items.Where(p => !string.IsNullOrWhiteSpace(p.Brand))
+            .Select(p => p.Brand!).Distinct().OrderBy(b => b).ToList();
         return Ok(brands);
     }
 
     [HttpGet("suggestions")]
-    public async Task<IActionResult> GetSuggestions([FromQuery] string? ids, CancellationToken ct)
+    public async Task<IActionResult> GetSuggestions([FromQuery] string? q, CancellationToken ct)
     {
-        var (items, _) = await repo.SearchAsync(null, null, null, null, null, 1, 20, ct);
-        return Ok(items.Take(10).Select(p => new { p.Id, p.Name, p.Price, p.ImageUrl, Reason = "Popular" }));
+        if (string.IsNullOrWhiteSpace(q))
+            return Ok(Array.Empty<object>());
+        var (items, _) = await repo.SearchAsync(q, null, null, null, null, 1, 8, ct);
+        return Ok(items.Select(p => new { p.Id, p.Name, p.Price, p.ImageUrl, Reason = "Match" }));
     }
 
     [HttpPost]

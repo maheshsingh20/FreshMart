@@ -13,7 +13,8 @@ public class ProductRepository(ProductDbContext db) : IProductRepository
 
     public async Task<(IEnumerable<Product> Items, int Total)> SearchAsync(
         string? query, Guid? categoryId, decimal? minPrice, decimal? maxPrice,
-        string? sortBy, int page, int pageSize, CancellationToken ct = default)
+        string? sortBy, int page, int pageSize, CancellationToken ct = default,
+        string? brand = null)
     {
         var q = db.Products.Include(p => p.Category).Where(p => p.IsActive).AsQueryable();
         if (!string.IsNullOrWhiteSpace(query))
@@ -21,6 +22,7 @@ public class ProductRepository(ProductDbContext db) : IProductRepository
         if (categoryId.HasValue) q = q.Where(p => p.CategoryId == categoryId);
         if (minPrice.HasValue) q = q.Where(p => p.Price >= minPrice);
         if (maxPrice.HasValue) q = q.Where(p => p.Price <= maxPrice);
+        if (!string.IsNullOrWhiteSpace(brand)) q = q.Where(p => p.Brand == brand);
         q = sortBy switch
         {
             "price_asc" => q.OrderBy(p => p.Price),
