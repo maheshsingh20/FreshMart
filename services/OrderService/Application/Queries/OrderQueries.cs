@@ -5,7 +5,7 @@ namespace OrderService.Application.Queries;
 
 public record OrderDto(Guid Id, Guid CustomerId, string CustomerEmail, string CustomerFirstName,
     string Status, decimal SubTotal,
-    decimal DeliveryFee, decimal TaxAmount, decimal TotalAmount, string DeliveryAddress,
+    decimal DeliveryFee, decimal TaxAmount, decimal DiscountAmount, decimal TotalAmount, string DeliveryAddress,
     string? Notes, DateTime CreatedAt, DateTime? EstimatedDelivery, DateTime? DeliveredAt,
     List<OrderItemDto> Items);
 
@@ -26,7 +26,7 @@ public class GetOrderByIdHandler(IOrderRepository repo) : IQueryHandler<GetOrder
     private static OrderDto MapToDto(Order o) =>
         new(o.Id, o.CustomerId, o.CustomerEmail, o.CustomerFirstName,
             o.Status.ToString(), o.SubTotal, o.DeliveryFee,
-            o.TaxAmount, o.TotalAmount, o.DeliveryAddress, o.Notes, o.CreatedAt,
+            o.TaxAmount, 0m, o.TotalAmount, o.DeliveryAddress, o.Notes, o.CreatedAt,
             o.EstimatedDelivery, o.DeliveredAt,
             o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.Quantity, i.UnitPrice, i.TotalPrice)).ToList());
 }
@@ -44,7 +44,7 @@ public class GetCustomerOrdersHandler(IOrderRepository repo)
     private static OrderDto MapToDto(Order o) =>
         new(o.Id, o.CustomerId, o.CustomerEmail, o.CustomerFirstName,
             o.Status.ToString(), o.SubTotal, o.DeliveryFee,
-            o.TaxAmount, o.TotalAmount, o.DeliveryAddress, o.Notes, o.CreatedAt,
+            o.TaxAmount, 0m, o.TotalAmount, o.DeliveryAddress, o.Notes, o.CreatedAt,
             o.EstimatedDelivery, o.DeliveredAt,
             o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.Quantity, i.UnitPrice, i.TotalPrice)).ToList());
 }
@@ -61,7 +61,7 @@ public class GetOrdersByStatusHandler(IOrderRepository repo)
         return orders.Select(o => new OrderDto(
             o.Id, o.CustomerId, o.CustomerEmail, o.CustomerFirstName,
             o.Status.ToString(), o.SubTotal, o.DeliveryFee,
-            o.TaxAmount, o.TotalAmount, o.DeliveryAddress, o.Notes, o.CreatedAt,
+            o.TaxAmount, 0m, o.TotalAmount, o.DeliveryAddress, o.Notes, o.CreatedAt,
             o.EstimatedDelivery, o.DeliveredAt,
             o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.Quantity, i.UnitPrice, i.TotalPrice)).ToList()));
     }
@@ -83,7 +83,7 @@ public class GetAllOrdersHandler(IOrderRepository repo)
     private static OrderDto MapToDto(Order o) =>
         new(o.Id, o.CustomerId, o.CustomerEmail, o.CustomerFirstName,
             o.Status.ToString(), o.SubTotal, o.DeliveryFee,
-            o.TaxAmount, o.TotalAmount, o.DeliveryAddress, o.Notes, o.CreatedAt,
+            o.TaxAmount, 0m, o.TotalAmount, o.DeliveryAddress, o.Notes, o.CreatedAt,
             o.EstimatedDelivery, o.DeliveredAt,
             o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.Quantity, i.UnitPrice, i.TotalPrice)).ToList());
 }

@@ -45,11 +45,16 @@ public class NotificationRelay(
     public async Task NotifyOrderStatusChangedAsync(
         Guid customerId, string customerEmail, string customerFirstName,
         Guid orderId, string orderRef, string newStatus,
+        string deliveryAddress = "",
+        decimal totalAmount = 0, decimal deliveryFee = 0, decimal taxAmount = 0, decimal discountAmount = 0,
+        IEnumerable<(string ProductName, int Quantity, decimal UnitPrice)>? items = null,
         CancellationToken ct = default)
     {
         var evt = new OrderStatusChangedEvent(
             orderId, customerId, orderRef, newStatus,
-            customerEmail, customerFirstName, DateTime.UtcNow);
+            customerEmail, customerFirstName, DateTime.UtcNow,
+            deliveryAddress, totalAmount, deliveryFee, taxAmount, discountAmount,
+            items?.Select(i => new OrderItemDto(Guid.Empty, i.ProductName, i.Quantity, i.UnitPrice)).ToList());
 
         var published = await TryPublishAsync(evt, ct);
         if (!published)

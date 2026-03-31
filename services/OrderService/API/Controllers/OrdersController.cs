@@ -109,10 +109,17 @@ public class OrdersController(
         var result = await mediator.Send(new UpdateOrderStatusCommand(id, req.Status), ct);
         if (!result.IsSuccess) return BadRequest(new { result.Error });
 
-        // Use customer's stored email, not the admin's
+        // Pass full order details so NotificationService can build a rich invoice email on Delivered
         _ = notificationRelay.NotifyOrderStatusChangedAsync(
             order.CustomerId, order.CustomerEmail, order.CustomerFirstName,
-            id, id.ToString()[..8].ToUpper(), req.Status, ct);
+            id, id.ToString()[..8].ToUpper(), req.Status,
+            deliveryAddress: order.DeliveryAddress,
+            totalAmount: order.TotalAmount,
+            deliveryFee: order.DeliveryFee,
+            taxAmount: order.TaxAmount,
+            discountAmount: order.DiscountAmount,
+            items: order.Items.Select(i => (i.ProductName, i.Quantity, i.UnitPrice)),
+            ct: ct);
 
         return NoContent();
     }

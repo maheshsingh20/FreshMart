@@ -85,7 +85,13 @@ public record OrderStatusChangedEvent(
     string NewStatus,
     string CustomerEmail,
     string CustomerFirstName,
-    DateTime OccurredOn) : IIntegrationEvent, SharedKernel.Domain.IDomainEvent
+    DateTime OccurredOn,
+    string DeliveryAddress = "",
+    decimal TotalAmount = 0,
+    decimal DeliveryFee = 0,
+    decimal TaxAmount = 0,
+    decimal DiscountAmount = 0,
+    List<OrderItemDto>? Items = null) : IIntegrationEvent, SharedKernel.Domain.IDomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     public string EventType => "OrderStatusChanged";

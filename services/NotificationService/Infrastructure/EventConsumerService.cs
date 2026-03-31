@@ -49,15 +49,20 @@ public class EventConsumerService(
             var email = scope.ServiceProvider.GetRequiredService<EmailService>();
             var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
 
-            // Send confirmation email
+            // Send detailed confirmation email
             if (!string.IsNullOrEmpty(evt.CustomerEmail))
             {
+                var subTotal = evt.Items.Sum(i => i.UnitPrice * i.Quantity);
+                var deliveryFee = subTotal >= 500 ? 0m : 49m;
+                var taxAmount = Math.Round(subTotal * 0.05m, 2);
                 await email.SendOrderConfirmationAsync(
                     evt.CustomerEmail,
                     evt.CustomerFirstName,
                     evt.OrderRef,
                     evt.TotalAmount,
-                    evt.Items.Select(i => (i.ProductName, i.Quantity, i.UnitPrice)));
+                    evt.Items.Select(i => (i.ProductName, i.Quantity, i.UnitPrice)),
+                    deliveryFee: deliveryFee,
+                    taxAmount: taxAmount);
             }
 
             // Persist in-app notification
@@ -85,7 +90,28 @@ public class EventConsumerService(
             var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
 
             if (!string.IsNullOrEmpty(evt.CustomerEmail))
-                await email.SendOrderStatusAsync(evt.CustomerEmail, evt.CustomerFirstName, evt.OrderRef, evt.NewStatus);
+            {
+                if (evt.NewStatus == "Delivered" && evt.Items is { Count: > 0 })
+                {
+                    // Send full invoice on delivery
+                    await email.SendDeliveryInvoiceAsync(
+                        evt.CustomerEmail,
+                        evt.CustomerFirstName,
+                        evt.OrderRef,
+                        evt.Items.Select(i => (i.ProductName, i.Quantity, i.UnitPrice)),
+                        evt.DeliveryAddress,
+                        subTotal: evt.Items.Sum(i => i.UnitPrice * i.Quantity),
+                        deliveryFee: evt.DeliveryFee,
+                        taxAmount: evt.TaxAmount,
+                        discountAmount: evt.DiscountAmount,
+                        totalAmount: evt.TotalAmount,
+                        deliveredAt: evt.OccurredOn);
+                }
+                else
+                {
+                    await email.SendOrderStatusAsync(evt.CustomerEmail, evt.CustomerFirstName, evt.OrderRef, evt.NewStatus);
+                }
+            }
 
             var (title, msg, type) = evt.NewStatus switch
             {
