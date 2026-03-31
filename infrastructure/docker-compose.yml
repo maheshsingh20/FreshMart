@@ -36,9 +36,18 @@ networks:
     driver: bridge
 
 volumes:
+  # Data volumes — NEVER delete these manually with `down -v`
+  # They contain all SQL Server databases (users, products, orders, etc.)
+  # To safely redeploy: use `docker compose down` (without -v)
   sqlserver-data:
+    labels:
+      com.freshmart.protect: "true"
   redis-data:
+    labels:
+      com.freshmart.protect: "true"
   rabbitmq-data:
+    labels:
+      com.freshmart.protect: "true"
 
 services:
   # ─── Infrastructure ───────────────────────────────────────────────────────────
