@@ -57,7 +57,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    try { await db.Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
 }
 
 app.UseSerilogRequestLogging();
@@ -68,3 +68,4 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 app.Run();
+

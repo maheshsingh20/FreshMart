@@ -49,7 +49,7 @@ builder.Services.AddCors(opt =>
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
-    await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().Database.EnsureCreatedAsync();
+    try { await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
 
 app.UseSerilogRequestLogging();
 app.UseSwagger(); app.UseSwaggerUI();
@@ -59,3 +59,4 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 app.Run();
+

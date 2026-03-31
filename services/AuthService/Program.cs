@@ -64,7 +64,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    try { await db.Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
     // Add OTP columns if they don't exist yet (idempotent schema update)
     await db.Database.ExecuteSqlRawAsync("""
         IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Users') AND name = 'OtpHash')

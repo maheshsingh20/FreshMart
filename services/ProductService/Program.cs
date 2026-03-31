@@ -66,7 +66,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ProductDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    try { await db.Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
     await ProductDbSeeder.SeedAsync(db);
 }
 

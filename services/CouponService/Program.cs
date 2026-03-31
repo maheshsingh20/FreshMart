@@ -47,7 +47,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CouponDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    try { await db.Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
     if (!db.Coupons.Any())
     {
         db.Coupons.AddRange(
