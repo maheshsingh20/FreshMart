@@ -7,12 +7,22 @@ using System.Text;
 
 namespace SharedKernel.Messaging;
 
+/// <summary>
+/// RabbitMQ implementation of <see cref="IMessageBus"/>.
+/// Uses fanout exchanges so every bound queue receives every published message —
+/// enabling multiple consumers (e.g. NotificationService, DeliveryService) to react to the same event.
+/// Messages are persisted (durable queues + persistent delivery mode) to survive broker restarts.
+/// </summary>
 public class RabbitMqMessageBus(IConfiguration config, ILogger<RabbitMqMessageBus> logger)
     : IMessageBus, IDisposable
 {
     private IConnection? _connection;
     private IModel? _channel;
 
+    /// <summary>
+    /// Builds a <see cref="ConnectionFactory"/> from configuration values.
+    /// Called fresh each retry attempt so updated config is picked up.
+    /// </summary>
     private ConnectionFactory BuildFactory() => new()
     {
         HostName = config["RabbitMQ:Host"] ?? "localhost",
@@ -28,6 +38,9 @@ public class RabbitMqMessageBus(IConfiguration config, ILogger<RabbitMqMessageBu
     /// Tries to connect with up to <paramref name="maxAttempts"/> retries.
     /// Used at subscribe time so the consumer survives a slow RabbitMQ startup.
     /// </summary>
+    /// <param name="maxAttempts">Maximum number of connection attempts before giving up.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><c>true</c> if a connection was established; <c>false</c> after all retries are exhausted.</returns>
     private async Task<bool> EnsureConnectedAsync(int maxAttempts = 10, CancellationToken ct = default)
     {
         if (_connection?.IsOpen == true) return true;
@@ -52,7 +65,10 @@ public class RabbitMqMessageBus(IConfiguration config, ILogger<RabbitMqMessageBu
         return false;
     }
 
-    /// <summary>Sync connect used for publish (fire-and-forget path).</summary>
+    /// <summary>
+    /// Synchronous connect used for the publish path (fire-and-forget).
+    /// Returns <c>false</c> and logs a warning instead of throwing if the broker is unavailable.
+    /// </summary>
     private bool TryEnsureConnected()
     {
         if (_connection?.IsOpen == true) return true;
@@ -71,6 +87,7 @@ public class RabbitMqMessageBus(IConfiguration config, ILogger<RabbitMqMessageBu
         }
     }
 
+    /// <inheritdoc/>
     public Task PublishAsync<T>(T message, string topic, CancellationToken ct = default) where T : class
     {
         if (!TryEnsureConnected())
@@ -97,6 +114,7 @@ public class RabbitMqMessageBus(IConfiguration config, ILogger<RabbitMqMessageBu
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc/>
     public async Task SubscribeAsync<T>(string topic, Func<T, Task> handler, CancellationToken ct = default) where T : class
     {
         if (!await EnsureConnectedAsync(ct: ct))
@@ -136,6 +154,7 @@ public class RabbitMqMessageBus(IConfiguration config, ILogger<RabbitMqMessageBu
         }
     }
 
+    /// <summary>Closes the channel and connection on disposal to release broker resources.</summary>
     public void Dispose()
     {
         _channel?.Close();
@@ -143,8 +162,17 @@ public class RabbitMqMessageBus(IConfiguration config, ILogger<RabbitMqMessageBu
     }
 }
 
+/// <summary>
+/// Maps strongly-typed integration events to their canonical RabbitMQ topic names
+/// and delegates publishing to <see cref="IMessageBus"/>.
+/// Centralises topic naming so individual services never hard-code exchange strings.
+/// </summary>
 public class RabbitMqEventPublisher(IMessageBus bus) : IEventPublisher
 {
+    /// <summary>
+    /// Static map from integration event type to RabbitMQ exchange name.
+    /// Add new entries here when introducing new cross-service events.
+    /// </summary>
     private static readonly Dictionary<Type, string> TopicMap = new()
     {
         [typeof(Events.OrderCreatedEvent)] = "order.created",
@@ -157,6 +185,7 @@ public class RabbitMqEventPublisher(IMessageBus bus) : IEventPublisher
         [typeof(Events.OrderStatusChangedEvent)] = "order.status-changed",
     };
 
+    /// <inheritdoc/>
     public Task PublishAsync<T>(T integrationEvent, CancellationToken ct = default) where T : class
     {
         var topic = TopicMap.TryGetValue(typeof(T), out var t) ? t : typeof(T).Name.ToLower();
