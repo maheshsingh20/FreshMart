@@ -71,7 +71,7 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
     // ── OTP ───────────────────────────────────────────────────────────────────
 
     public Task SendEmailVerificationOtpAsync(string email, string firstName, string otp) =>
-        SendAsync(email, firstName, "Verify your FreshMart account ✉️", Wrap($"""
+        SendAsync(email, firstName, "Verify your FreshMart account", Wrap($"""
             <div style="text-align:center;padding:8px 0 24px">
               <div style="font-size:48px">✉️</div>
               <h1 style="margin:12px 0 4px;font-size:24px;color:#111827">Verify your email</h1>
@@ -88,7 +88,7 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
         """));
 
     public Task SendPasswordResetOtpAsync(string email, string firstName, string otp) =>
-        SendAsync(email, firstName, "Reset your FreshMart password 🔒", Wrap($"""
+        SendAsync(email, firstName, "Reset your FreshMart password", Wrap($"""
             <div style="text-align:center;padding:8px 0 24px">
               <div style="font-size:48px">🔒</div>
               <h1 style="margin:12px 0 4px;font-size:24px;color:#111827">Password Reset</h1>
@@ -137,22 +137,22 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
               </div>
             """ : "";
 
-        return SendAsync(email, firstName, $"Order Confirmed ✅ — #{orderRef}", Wrap($"""
+        // Extract ternary with HTML tags into a variable — can't use < > inside raw string interpolation holes
+        var deliveryCell = deliveryFee == 0
+            ? "<span style='color:#16a34a;font-weight:600'>FREE</span>"
+            : $"&#8377;{deliveryFee:F2}";
+
+        return SendAsync(email, firstName, $"Order Confirmed - #{orderRef}", Wrap($"""
             <div style="text-align:center;padding:8px 0 20px">
-              <div style="font-size:48px">✅</div>
+              <div style="font-size:48px">&#x2705;</div>
               <h1 style="margin:12px 0 4px;font-size:24px;color:#111827">Order Confirmed!</h1>
               <p style="color:#6b7280;margin:0">Hi {firstName}, we've received your order.</p>
             </div>
 
-            <div style="background:#f0fdf4;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
-              <div>
-                <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Order Reference</p>
-                <p style="margin:4px 0 0;font-size:20px;font-weight:800;color:#16a34a;letter-spacing:2px">#{orderRef}</p>
-              </div>
-              <div style="text-align:right">
-                <p style="margin:0;font-size:12px;color:#6b7280">Placed on</p>
-                <p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#374151">{DateTime.UtcNow:dd MMM yyyy, HH:mm} UTC</p>
-              </div>
+            <div style="background:#f0fdf4;border-radius:10px;padding:14px 18px;margin-bottom:20px">
+              <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Order Reference</p>
+              <p style="margin:4px 0 0;font-size:20px;font-weight:800;color:#16a34a;letter-spacing:2px">#{orderRef}</p>
+              <p style="margin:4px 0 0;font-size:12px;color:#6b7280">Placed on {DateTime.UtcNow:dd MMM yyyy, HH:mm} UTC</p>
             </div>
 
             <table style="width:100%;border-collapse:collapse;font-size:14px">
@@ -169,7 +169,7 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
                 <tr><td colspan="3" style="padding:8px 12px;text-align:right;color:#6b7280;font-size:13px">Subtotal</td>
                     <td style="padding:8px 12px;text-align:right;color:#374151;font-size:13px">&#8377;{subTotal:F2}</td></tr>
                 <tr><td colspan="3" style="padding:4px 12px;text-align:right;color:#6b7280;font-size:13px">Delivery</td>
-                    <td style="padding:4px 12px;text-align:right;color:#374151;font-size:13px">{(deliveryFee == 0 ? "<span style='color:#16a34a;font-weight:600'>FREE</span>" : $"&#8377;{deliveryFee:F2}")}</td></tr>
+                    <td style="padding:4px 12px;text-align:right;color:#374151;font-size:13px">{deliveryCell}</td></tr>
                 <tr><td colspan="3" style="padding:4px 12px;text-align:right;color:#6b7280;font-size:13px">Tax (5%)</td>
                     <td style="padding:4px 12px;text-align:right;color:#374151;font-size:13px">&#8377;{taxAmount:F2}</td></tr>
                 {discountRow}
@@ -183,7 +183,7 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
             {addrBlock}
 
             <div style="margin:20px 0;padding:14px;background:#eff6ff;border-radius:10px;border-left:4px solid #3b82f6">
-              <p style="margin:0;color:#1d4ed8;font-size:13px">📦 Estimated delivery: <strong>2 business days</strong></p>
+              <p style="margin:0;color:#1d4ed8;font-size:13px">&#x1F4E6; Estimated delivery: <strong>2 business days</strong></p>
             </div>
 
             {Btn("Track Your Order", "http://localhost:4200/orders")}
@@ -233,8 +233,12 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
                    <td style="padding:6px 14px;text-align:right;color:#16a34a;font-size:13px;font-weight:600">- &#8377;{discountAmount:F2}</td></tr>"""
             : "";
 
-        return SendAsync(email, firstName, $"Invoice — FreshMart Order #{orderRef} 🧾", Wrap($"""
-            <!-- Invoice Header -->
+        // Extract ternary with HTML tags — can't use < > inside raw string interpolation holes
+        var deliveryCell = deliveryFee == 0
+            ? "<span style='color:#16a34a;font-weight:600'>FREE</span>"
+            : $"&#8377;{deliveryFee:F2}";
+
+        return SendAsync(email, firstName, $"Invoice - FreshMart Order #{orderRef}", Wrap($"""            <!-- Invoice Header -->
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #e5e7eb">
               <div>
                 <h1 style="margin:0;font-size:28px;font-weight:900;color:#16a34a">FreshMart</h1>
@@ -281,7 +285,7 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
                 <tr><td colspan="3" style="padding:8px 14px;text-align:right;color:#6b7280;font-size:13px">Subtotal</td>
                     <td style="padding:8px 14px;text-align:right;color:#374151;font-size:13px">&#8377;{subTotal:F2}</td></tr>
                 <tr><td colspan="3" style="padding:4px 14px;text-align:right;color:#6b7280;font-size:13px">Delivery Fee</td>
-                    <td style="padding:4px 14px;text-align:right;font-size:13px">{(deliveryFee == 0 ? "<span style='color:#16a34a;font-weight:600'>FREE</span>" : $"&#8377;{deliveryFee:F2}")}</td></tr>
+                    <td style="padding:4px 14px;text-align:right;font-size:13px">{deliveryCell}</td></tr>
                 <tr><td colspan="3" style="padding:4px 14px;text-align:right;color:#6b7280;font-size:13px">Tax (5%)</td>
                     <td style="padding:4px 14px;text-align:right;color:#374151;font-size:13px">&#8377;{taxAmount:F2}</td></tr>
                 {discountRow}
@@ -293,7 +297,7 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
             </table>
 
             <p style="margin:24px 0 8px;text-align:center;color:#9ca3af;font-size:12px">
-              Thank you for shopping with FreshMart! 🛒 We hope to see you again soon.
+              Thank you for shopping with FreshMart! We hope to see you again soon.
             </p>
             {Btn("Shop Again", "http://localhost:4200/products")}
 
@@ -314,7 +318,7 @@ public class EmailService(IConfiguration config, ILogger<EmailService> logger)
               <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)">
                 <!-- Header bar -->
                 <tr><td style="background:linear-gradient(135deg,#16a34a,#15803d);padding:20px 32px">
-                  <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">🛒 FreshMart</p>
+                  <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">&#x1F6D2; FreshMart</p>
                   <p style="margin:2px 0 0;font-size:12px;color:#bbf7d0">Fresh groceries, delivered fast</p>
                 </td></tr>
                 <!-- Body -->
