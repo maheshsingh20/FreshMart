@@ -5,12 +5,22 @@ using SharedKernel.Events;
 using SharedKernel.Messaging;
 namespace NotificationService.Infrastructure;
 
-// Matches the anonymous object published by AuthService's NotificationRelay
+/// <summary>
+/// Payload shape published by AuthService's NotificationRelay on the "user.registered" topic.
+/// Matches the anonymous object sent via RabbitMQ so it can be deserialized here.
+/// </summary>
 public record UserRegisteredMessage(Guid UserId, string Email, string FirstName, DateTime OccurredOn);
 
 /// <summary>
-/// Background service that subscribes to RabbitMQ events and sends emails + DB notifications.
-/// Gracefully skips if RabbitMQ is unavailable.
+/// Hosted background service that subscribes to RabbitMQ integration events and:
+/// 1. Sends transactional emails via <see cref="EmailService"/>.
+/// 2. Persists in-app notifications to the database.
+/// 3. Pushes real-time notifications to connected browser clients via SignalR.
+///
+/// Subscriptions are set up once at startup. If RabbitMQ is unavailable the service
+/// logs a warning and skips that subscription — it does not crash the process.
+/// A scoped <see cref="IServiceScopeFactory"/> is used to resolve scoped services
+/// (DbContext, EmailService) inside the singleton background service.
 /// </summary>
 public class EventConsumerService(
     IMessageBus bus,
@@ -43,13 +53,14 @@ public class EventConsumerService(
                 await email.SendPasswordResetOtpAsync(evt.Email, evt.FirstName, evt.Otp);
         }, ct);
 
-        await bus.SubscribeAsync<OrderCreatedEvent>("order.created", async evt =>        {
+        // Order confirmation email + in-app notification
+        await bus.SubscribeAsync<OrderCreatedEvent>("order.created", async evt =>
+        {
             logger.LogInformation("Consumed order.created for order {OrderId}", evt.OrderId);
             await using var scope = scopeFactory.CreateAsyncScope();
             var email = scope.ServiceProvider.GetRequiredService<EmailService>();
             var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
 
-            // Send detailed confirmation email
             if (!string.IsNullOrEmpty(evt.CustomerEmail))
             {
                 var subTotal = evt.Items.Sum(i => i.UnitPrice * i.Quantity);
@@ -65,26 +76,26 @@ public class EventConsumerService(
                     taxAmount: taxAmount);
             }
 
-            // Persist in-app notification
             var orderCreatedNotif = new Notification
             {
                 UserId = evt.CustomerId,
-                Title = "Order Confirmed ✅",
-                Message = $"Order #{evt.OrderRef} placed. Total: ₹{evt.TotalAmount:F2}",
+                Title = "Order Confirmed",
+                Message = $"Order #{evt.OrderRef} placed. Total: Rs.{evt.TotalAmount:F2}",
                 Type = "success",
-                Link = $"/orders"
+                Link = "/orders"
             };
             db.Notifications.Add(orderCreatedNotif);
             await db.SaveChangesAsync(ct);
 
-            // Push real-time via SignalR
             await hubContext.Clients.Group(evt.CustomerId.ToString())
                 .SendAsync("notification", orderCreatedNotif, ct);
         }, ct);
 
+        // Order status update email + in-app notification.
+        // On "Delivered" status, sends a full invoice email instead of a simple status update.
         await bus.SubscribeAsync<OrderStatusChangedEvent>("order.status-changed", async evt =>
         {
-            logger.LogInformation("Consumed order.status-changed for order {OrderId} → {Status}", evt.OrderId, evt.NewStatus);
+            logger.LogInformation("Consumed order.status-changed for order {OrderId} to {Status}", evt.OrderId, evt.NewStatus);
             await using var scope = scopeFactory.CreateAsyncScope();
             var email = scope.ServiceProvider.GetRequiredService<EmailService>();
             var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
@@ -93,7 +104,6 @@ public class EventConsumerService(
             {
                 if (evt.NewStatus == "Delivered" && evt.Items is { Count: > 0 })
                 {
-                    // Send full invoice on delivery
                     await email.SendDeliveryInvoiceAsync(
                         evt.CustomerEmail,
                         evt.CustomerFirstName,
@@ -129,17 +139,16 @@ public class EventConsumerService(
                 Title = title,
                 Message = msg,
                 Type = type,
-                Link = $"/orders"
+                Link = "/orders"
             };
             db.Notifications.Add(statusNotif);
             await db.SaveChangesAsync(ct);
 
-            // Push real-time via SignalR
             await hubContext.Clients.Group(evt.CustomerId.ToString())
                 .SendAsync("notification", statusNotif, ct);
         }, ct);
 
-        // Keep alive
+        // Keep the hosted service alive until the application shuts down
         await Task.Delay(Timeout.Infinite, ct);
     }
 }

@@ -2,8 +2,15 @@ using CartService.Application;
 
 namespace CartService.Infrastructure;
 
+/// <summary>
+/// HTTP client that calls ProductService to fetch stock levels and product suggestions.
+/// Used by <see cref="CartAppService"/> to validate stock before adding items to the cart.
+/// Fails open — returns <see cref="int.MaxValue"/> for stock when ProductService is unreachable
+/// so a temporary outage doesn't block customers from using their cart.
+/// </summary>
 public class HttpProductCatalogClient(IHttpClientFactory factory) : IProductCatalogClient
 {
+    /// <inheritdoc/>
     public async Task<IEnumerable<ProductSuggestion>> GetSuggestionsAsync(
         List<Guid> productIds, CancellationToken ct)
     {
@@ -18,6 +25,11 @@ public class HttpProductCatalogClient(IHttpClientFactory factory) : IProductCata
         catch { return []; }
     }
 
+    /// <summary>
+    /// Returns the current stock quantity for a product.
+    /// Returns <see cref="int.MaxValue"/> on failure so cart operations are not blocked
+    /// when ProductService is temporarily unavailable.
+    /// </summary>
     public async Task<int> GetStockAsync(Guid productId, CancellationToken ct)
     {
         try
@@ -27,9 +39,9 @@ public class HttpProductCatalogClient(IHttpClientFactory factory) : IProductCata
                 $"/api/v1/products/{productId}", ct);
             return product?.StockQuantity ?? 0;
         }
-        catch { return int.MaxValue; } // fail open — don't block cart if product service is down
+        catch { return int.MaxValue; }
     }
 }
 
-// Minimal DTO to read stock from ProductService response
+/// <summary>Minimal DTO to deserialize the stock quantity from a ProductService response.</summary>
 file record ProductStockDto(int StockQuantity);

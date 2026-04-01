@@ -4,20 +4,36 @@ using StackExchange.Redis;
 
 namespace CartService.Infrastructure;
 
+/// <summary>
+/// Persistence contract for shopping carts.
+/// Implementations must be thread-safe as multiple requests for the same customer can arrive concurrently.
+/// </summary>
 public interface ICartRepository
 {
+    /// <summary>Retrieves the cart for a customer, or <c>null</c> if none exists.</summary>
     Task<Cart?> GetAsync(Guid customerId, CancellationToken ct = default);
+
+    /// <summary>Persists (creates or overwrites) the cart for a customer.</summary>
     Task SaveAsync(Cart cart, CancellationToken ct = default);
+
+    /// <summary>Deletes the cart for a customer (called after a successful order).</summary>
     Task DeleteAsync(Guid customerId, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Redis-backed cart repository. Carts are stored as JSON strings with a 7-day TTL.
+/// Falls back to an in-process dictionary when Redis is unavailable so the cart
+/// still works during Redis restarts (data is lost on pod restart in that case).
+/// </summary>
 public class RedisCartRepository(IConnectionMultiplexer redis) : ICartRepository
 {
     private static string Key(Guid id) => $"cart:{id}";
     private static readonly TimeSpan Ttl = TimeSpan.FromDays(7);
-    // In-memory fallback when Redis is unavailable
+
+    /// <summary>In-memory fallback used when Redis is unavailable.</summary>
     private static readonly Dictionary<Guid, string> _memoryStore = new();
 
+    /// <inheritdoc/>
     public async Task<Cart?> GetAsync(Guid customerId, CancellationToken ct = default)
     {
         try
@@ -33,6 +49,7 @@ public class RedisCartRepository(IConnectionMultiplexer redis) : ICartRepository
         }
     }
 
+    /// <inheritdoc/>
     public async Task SaveAsync(Cart cart, CancellationToken ct = default)
     {
         var json = JsonConvert.SerializeObject(cart);
@@ -47,6 +64,7 @@ public class RedisCartRepository(IConnectionMultiplexer redis) : ICartRepository
         }
     }
 
+    /// <inheritdoc/>
     public async Task DeleteAsync(Guid customerId, CancellationToken ct = default)
     {
         try
