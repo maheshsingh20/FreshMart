@@ -183,7 +183,7 @@ print('Environment files updated')
                 withCredentials([file(credentialsId: 'grocery-env-file', variable: 'ENV_FILE')]) {
                     sh '''
                         cp $ENV_FILE infrastructure/.env
-                        docker compose -f infrastructure/docker-compose.yml up -d --remove-orphans
+                        docker compose -f infrastructure/docker-compose.yml up -d
                     '''
                 }
             }
