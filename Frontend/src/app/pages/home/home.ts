@@ -64,47 +64,63 @@ const ROLE_LABELS: Record<string, string> = {
   imports: [SearchBar, RouterLink],
   template: `
     <!-- Hero -->
-    <section class="relative overflow-hidden min-h-[460px] flex items-center"
-      [class]="'bg-gradient-to-br ' + currentSlide().gradient">
-      <div class="absolute inset-0 flex items-center justify-end pr-12 pointer-events-none select-none opacity-10">
-        <span class="text-[20rem] leading-none">{{ currentSlide().emoji }}</span>
+    <section class="relative overflow-hidden min-h-[520px] flex items-center">
+      <!-- Animated gradient background -->
+      <div class="absolute inset-0 transition-all duration-1000"
+        [style]="'background: linear-gradient(135deg, ' + heroGradients[slideIndex()] + ')'"></div>
+      <!-- Noise texture -->
+      <div class="absolute inset-0 opacity-[0.03]" style="background-image:url('data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E')"></div>
+      <!-- Decorative circles -->
+      <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-20 blur-3xl bg-white"></div>
+      <div class="absolute -bottom-20 -left-20 w-80 h-80 rounded-full opacity-10 blur-3xl bg-white"></div>
+      <!-- Big emoji -->
+      <div class="absolute inset-0 flex items-center justify-end pr-8 md:pr-20 pointer-events-none select-none">
+        <span class="text-[16rem] md:text-[22rem] leading-none opacity-[0.07] transition-all duration-700">{{ currentSlide().emoji }}</span>
       </div>
-      <div class="relative z-10 max-w-5xl mx-auto px-6 py-20 w-full">
-        <p class="text-white/70 text-xs font-semibold uppercase tracking-widest mb-3">FreshMart</p>
+
+      <div class="relative z-10 max-w-5xl mx-auto px-6 py-24 w-full">
+        <div class="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-5">
+          <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+          <span class="text-white/90 text-xs font-semibold tracking-wide">FreshMart — Fresh Groceries Delivered</span>
+        </div>
+
         @if (auth.isAuthenticated()) {
-          <h1 class="text-4xl md:text-5xl font-extrabold text-white leading-tight mb-4">
-            Welcome back, {{ userName() }}!
+          <h1 class="text-4xl md:text-6xl font-black text-white leading-[1.1] mb-4 tracking-tight">
+            Welcome back,<br><span class="text-white/80">{{ userName() }}!</span>
           </h1>
-          <p class="text-white/80 text-base mb-7 max-w-lg">Good to see you again. What are you shopping for today?</p>
+          <p class="text-white/70 text-lg mb-8 max-w-lg">Good to see you again. What are you shopping for today?</p>
         } @else {
-          <h1 class="text-4xl md:text-5xl font-extrabold text-white leading-tight mb-4 whitespace-pre-line">
+          <h1 class="text-4xl md:text-6xl font-black text-white leading-[1.1] mb-4 tracking-tight whitespace-pre-line">
             {{ currentSlide().title }}
           </h1>
-          <p class="text-white/80 text-base mb-7 max-w-lg">{{ currentSlide().subtitle }}</p>
+          <p class="text-white/70 text-lg mb-8 max-w-lg">{{ currentSlide().subtitle }}</p>
         }
-        <div class="max-w-lg mb-7">
+
+        <div class="max-w-lg mb-8">
           <app-search-bar placeholder="Search for fruits, dairy, snacks..."
             (searched)="goSearch($event)" (suggestionSelected)="goSuggestion($event)" />
         </div>
+
         <div class="flex gap-3 flex-wrap">
           <button (click)="router.navigate(['/products'])"
-            class="bg-white text-gray-900 font-semibold px-6 py-2.5 rounded-full shadow hover:shadow-md transition text-sm">
+            class="bg-white text-slate-900 font-bold px-7 py-3 rounded-2xl shadow-xl shadow-black/10 hover:shadow-black/20 hover:-translate-y-0.5 transition-all text-sm">
             {{ auth.isAuthenticated() ? 'Browse Products' : currentSlide().cta }}
           </button>
           @if (!auth.isAuthenticated()) {
             <button (click)="router.navigate(['/auth/register'])"
-              class="border border-white/60 text-white font-medium px-6 py-2.5 rounded-full hover:bg-white/10 transition text-sm">
+              class="border-2 border-white/40 text-white font-semibold px-7 py-3 rounded-2xl hover:bg-white/10 hover:border-white/60 transition-all text-sm backdrop-blur-sm">
               Create Account
             </button>
           }
         </div>
       </div>
-      <!-- Slide dots (only for guests) -->
+
+      <!-- Slide dots -->
       @if (!auth.isAuthenticated()) {
-        <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
           @for (s of heroSlides; track $index; let i = $index) {
             <button (click)="slideIndex.set(i)"
-              [class]="slideIndex() === i ? 'bg-white w-5' : 'bg-white/40 w-2'"
+              [class]="slideIndex() === i ? 'bg-white w-6' : 'bg-white/40 w-2'"
               class="h-2 rounded-full transition-all duration-300"></button>
           }
         </div>
@@ -154,14 +170,14 @@ const ROLE_LABELS: Record<string, string> = {
     }
 
     <!-- Features strip -->
-    <section class="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-      <div class="max-w-5xl mx-auto px-6 py-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+    <section class="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+      <div class="max-w-5xl mx-auto px-6 py-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         @for (f of features; track f.title) {
-          <div class="flex items-center gap-3">
-            <span class="text-xl">{{ f.icon }}</span>
+          <div class="flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition group">
+            <div class="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-950/40 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition-transform">{{ f.icon }}</div>
             <div>
-              <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ f.title }}</p>
-              <p class="text-xs text-gray-400 dark:text-gray-500">{{ f.desc }}</p>
+              <p class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ f.title }}</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500">{{ f.desc }}</p>
             </div>
           </div>
         }
@@ -291,45 +307,53 @@ const ROLE_LABELS: Record<string, string> = {
     </section>
 
     <!-- Footer -->
-    <footer class="bg-gray-100 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 py-10 mt-4">
-      <div class="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-        <div>
-          <p class="text-gray-900 dark:text-white font-bold text-base mb-3">🛒 FreshMart</p>
-          <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400">Your neighbourhood grocery store, online. Fresh, fast, affordable.</p>
+    <footer class="bg-slate-900 dark:bg-slate-950 text-slate-400 py-14 mt-4">
+      <div class="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+        <div class="col-span-2 md:col-span-1">
+          <div class="flex items-center gap-2.5 mb-4">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+            </div>
+            <span class="font-bold text-white text-base">Fresh<span class="text-green-400">Mart</span></span>
+          </div>
+          <p class="text-sm leading-relaxed text-slate-400">Your neighbourhood grocery store, online. Fresh, fast, affordable.</p>
         </div>
         <div>
-          <p class="text-gray-900 dark:text-white font-semibold text-sm mb-3">Shop</p>
-          <ul class="space-y-2 text-sm">
-            <li><button (click)="router.navigate(['/products'])" class="hover:text-gray-900 dark:hover:text-white transition">All Products</button></li>
+          <p class="text-white font-semibold text-sm mb-4">Shop</p>
+          <ul class="space-y-2.5 text-sm">
+            <li><button (click)="router.navigate(['/products'])" class="hover:text-white transition">All Products</button></li>
             @for (cat of categories().slice(0, 4); track cat.id) {
-              <li><button (click)="browseCategory(cat.id)" class="hover:text-gray-900 dark:hover:text-white transition">{{ cat.name }}</button></li>
+              <li><button (click)="browseCategory(cat.id)" class="hover:text-white transition">{{ cat.name }}</button></li>
             }
           </ul>
         </div>
         <div>
-          <p class="text-gray-900 dark:text-white font-semibold text-sm mb-3">Account</p>
-          <ul class="space-y-2 text-sm">
+          <p class="text-white font-semibold text-sm mb-4">Account</p>
+          <ul class="space-y-2.5 text-sm">
             @if (auth.isAuthenticated()) {
-              <li><button (click)="router.navigate(['/orders'])" class="hover:text-gray-900 dark:hover:text-white transition">My Orders</button></li>
-              <li><button (click)="router.navigate(['/cart'])" class="hover:text-gray-900 dark:hover:text-white transition">My Cart</button></li>
+              <li><button (click)="router.navigate(['/orders'])" class="hover:text-white transition">My Orders</button></li>
+              <li><button (click)="router.navigate(['/cart'])" class="hover:text-white transition">My Cart</button></li>
+              <li><button (click)="router.navigate(['/profile'])" class="hover:text-white transition">Profile</button></li>
             } @else {
-              <li><button (click)="router.navigate(['/auth/login'])" class="hover:text-gray-900 dark:hover:text-white transition">Login</button></li>
-              <li><button (click)="router.navigate(['/auth/register'])" class="hover:text-gray-900 dark:hover:text-white transition">Register</button></li>
+              <li><button (click)="router.navigate(['/auth/login'])" class="hover:text-white transition">Sign In</button></li>
+              <li><button (click)="router.navigate(['/auth/register'])" class="hover:text-white transition">Register</button></li>
             }
           </ul>
         </div>
         <div>
-          <p class="text-gray-900 dark:text-white font-semibold text-sm mb-3">Support</p>
-          <ul class="space-y-2 text-sm">
-            <li>📞 1-800-FRESH</li>
-            <li>✉️ help&#64;freshmart.com</li>
-            <li>🕐 24/7 Support</li>
+          <p class="text-white font-semibold text-sm mb-4">Support</p>
+          <ul class="space-y-2.5 text-sm">
+            <li class="flex items-center gap-2"><span class="text-green-400">&#x260E;</span> 1-800-FRESH</li>
+            <li class="flex items-center gap-2"><span class="text-green-400">&#x2709;</span> help&#64;freshmart.com</li>
+            <li class="flex items-center gap-2"><span class="text-green-400">&#x23F0;</span> 24/7 Support</li>
           </ul>
         </div>
       </div>
-      <div class="max-w-5xl mx-auto px-6 border-t border-gray-200 dark:border-gray-800 pt-5 flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-gray-400 dark:text-gray-600">
-        <p>© 2026 FreshMart. All rights reserved.</p>
-        <p>Built with ❤️ for fresh groceries</p>
+      <div class="max-w-5xl mx-auto px-6 border-t border-slate-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+        <p>&#169; 2026 FreshMart. All rights reserved.</p>
+        <p>Built with &#x2764;&#xFE0F; for fresh groceries</p>
       </div>
     </footer>
   `
@@ -349,6 +373,12 @@ export class Home implements OnInit {
   featuredProducts = signal<Product[]>([]);
   categoriesLoading = signal(true);
   productsLoading = signal(true);
+
+  heroGradients = [
+    '#16a34a, #059669, #0d9488',
+    '#ea580c, #d97706, #ca8a04',
+    '#e11d48, #db2777, #c026d3',
+  ];
 
   currentSlide = () => HERO_SLIDES[this.slideIndex()];
   private slideTimer: ReturnType<typeof setInterval> | null = null;

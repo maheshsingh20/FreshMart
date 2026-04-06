@@ -12,10 +12,13 @@ public class RefreshTokenHandler(IUserRepository repo, IJwtService jwt)
 {
     public async Task<Result<AuthTokenResponse>> Handle(RefreshTokenCommand cmd, CancellationToken ct)
     {
-        // Find user by refresh token
         var user = await repo.GetByRefreshTokenAsync(cmd.RefreshToken, ct);
         if (user is null || user.RefreshTokenExpiry < DateTime.UtcNow)
             return Result<AuthTokenResponse>.Failure("Invalid or expired refresh token.");
+
+        // Block deactivated users from getting new tokens
+        if (!user.IsActive)
+            return Result<AuthTokenResponse>.Failure("Account is deactivated.");
 
         var accessToken = jwt.GenerateAccessToken(user);
         var (newRefresh, expiry) = jwt.GenerateRefreshToken();

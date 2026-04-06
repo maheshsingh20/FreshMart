@@ -49,6 +49,15 @@ public class UpdateUserHandler(UserDbContext db)
         var u = await db.Users.FindAsync([cmd.Id], ct);
         if (u is null) return (false, null);
         u.IsActive = !u.IsActive;
+
+        // Revoke refresh token immediately when deactivating
+        // so the user cannot silently get a new access token
+        if (!u.IsActive)
+        {
+            u.RefreshToken = null;
+            u.RefreshTokenExpiry = null;
+        }
+
         await db.SaveChangesAsync(ct);
         return (true, new { id = u.Id, u.IsActive });
     }
@@ -57,6 +66,13 @@ public class UpdateUserHandler(UserDbContext db)
     {
         var u = await db.Users.FindAsync([cmd.Id], ct);
         if (u is null) return false;
+
+        // Revoke refresh token before deletion so any in-flight
+        // token refresh attempts fail immediately
+        u.RefreshToken = null;
+        u.RefreshTokenExpiry = null;
+        await db.SaveChangesAsync(ct);
+
         db.Users.Remove(u);
         await db.SaveChangesAsync(ct);
         return true;
