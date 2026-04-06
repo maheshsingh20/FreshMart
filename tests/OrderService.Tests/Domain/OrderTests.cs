@@ -2,6 +2,7 @@ using FluentAssertions;
 using NUnit.Framework;
 using OrderService.Domain;
 using SharedKernel.Events;
+using System.Linq;
 
 namespace OrderService.Tests.Domain;
 
