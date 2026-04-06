@@ -115,9 +115,38 @@ JSONEOF
                 sh '''
                     dotnet test tests/AuthService.Tests/AuthService.Tests.csproj \
                         --no-build -c Release \
-                        --logger "trx;LogFileName=results.trx" \
-                        --results-directory ./TestResults \
-                        || true
+                        --logger "trx;LogFileName=auth-results.trx" \
+                        --results-directory ./TestResults || true
+
+                    dotnet test tests/ProductService.Tests/ProductService.Tests.csproj \
+                        --no-build -c Release \
+                        --logger "trx;LogFileName=product-results.trx" \
+                        --results-directory ./TestResults || true
+
+                    dotnet test tests/OrderService.Tests/OrderService.Tests.csproj \
+                        --no-build -c Release \
+                        --logger "trx;LogFileName=order-results.trx" \
+                        --results-directory ./TestResults || true
+
+                    dotnet test tests/CartService.Tests/CartService.Tests.csproj \
+                        --no-build -c Release \
+                        --logger "trx;LogFileName=cart-results.trx" \
+                        --results-directory ./TestResults || true
+
+                    dotnet test tests/PaymentService.Tests/PaymentService.Tests.csproj \
+                        --no-build -c Release \
+                        --logger "trx;LogFileName=payment-results.trx" \
+                        --results-directory ./TestResults || true
+
+                    dotnet test tests/DeliveryService.Tests/DeliveryService.Tests.csproj \
+                        --no-build -c Release \
+                        --logger "trx;LogFileName=delivery-results.trx" \
+                        --results-directory ./TestResults || true
+
+                    dotnet test tests/CouponService.Tests/CouponService.Tests.csproj \
+                        --no-build -c Release \
+                        --logger "trx;LogFileName=coupon-results.trx" \
+                        --results-directory ./TestResults || true
                 '''
             }
             post {
