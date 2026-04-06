@@ -29,14 +29,14 @@ const FEATURES = [
 
 const ROLE_ACTIONS: Record<string, { icon: string; label: string; route: string[] }[]> = {
   Admin: [
-    { icon: '⚙️', label: 'Dashboard', route: ['/admin'] },
-    { icon: '📦', label: 'Products', route: ['/products'] },
-    { icon: '📋', label: 'Orders', route: ['/orders'] },
-    { icon: '🏷️', label: 'Categories', route: ['/categories'] },
+    { icon: '⚙️', label: 'Dashboard', route: ['/admin/dashboard'] },
+    { icon: '📦', label: 'Products', route: ['/admin/products'] },
+    { icon: '📋', label: 'Orders', route: ['/admin/orders'] },
+    { icon: '👥', label: 'Users', route: ['/admin/users'] },
   ],
   StoreManager: [
-    { icon: '📦', label: 'Inventory', route: ['/store-manager'] },
-    { icon: '📋', label: 'Orders', route: ['/orders'] },
+    { icon: '📦', label: 'Inventory', route: ['/admin/products'] },
+    { icon: '📋', label: 'Orders', route: ['/admin/orders'] },
     { icon: '🛍️', label: 'Products', route: ['/products'] },
   ],
   DeliveryDriver: [
@@ -44,10 +44,10 @@ const ROLE_ACTIONS: Record<string, { icon: string; label: string; route: string[
     { icon: '📋', label: 'All Orders', route: ['/orders'] },
   ],
   Customer: [
-    { icon: '&#x1F3F7;', label: 'On Sale',  route: ['/sale']     },
-    { icon: '&#x1F6D2;', label: 'My Cart',  route: ['/cart']     },
-    { icon: '&#x1F4CB;', label: 'My Orders',route: ['/orders']   },
-    { icon: '&#x2764;',  label: 'Wishlist', route: ['/products'] },
+    { icon: '🏷️', label: 'On Sale',   route: ['/sale']     },
+    { icon: '🛒', label: 'My Cart',   route: ['/cart']     },
+    { icon: '📋', label: 'My Orders', route: ['/orders']   },
+    { icon: '❤️', label: 'Wishlist',  route: ['/products'] },
   ],
 };
 
@@ -129,39 +129,41 @@ const ROLE_LABELS: Record<string, string> = {
 
     <!-- Personalized dashboard for authenticated users -->
     @if (auth.isAuthenticated()) {
-      <section class="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-        <div class="max-w-5xl mx-auto px-6 py-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Signed in as</p>
-              <p class="font-semibold text-gray-900 dark:text-white">
-                {{ userName() }}
-                <span class="ml-2 text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+      <section class="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+        <div class="max-w-5xl mx-auto px-6 py-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 text-white text-sm font-bold flex items-center justify-center shadow-sm shrink-0">
+                {{ initials() }}
+              </div>
+              <div>
+                <p class="font-semibold text-slate-900 dark:text-white text-sm">{{ userName() }}</p>
+                <span class="text-xs font-medium px-2 py-0.5 rounded-full inline-block mt-0.5" [class]="rolePillClass()">
                   {{ roleLabel() }}
                 </span>
-              </p>
+              </div>
             </div>
             @if (userRole() === 'Customer') {
-              <div class="flex gap-4 text-center">
-                <div class="cursor-pointer" (click)="router.navigate(['/cart'])">
-                  <p class="text-xl font-bold text-gray-900 dark:text-white">{{ cartCount() }}</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">Cart items</p>
+              <div class="flex gap-5 text-center">
+                <div class="cursor-pointer group" (click)="router.navigate(['/cart'])">
+                  <p class="text-lg font-bold text-slate-900 dark:text-white group-hover:text-green-600 transition">{{ cartCount() }}</p>
+                  <p class="text-xs text-slate-400">Cart items</p>
                 </div>
-                <div class="w-px bg-gray-200 dark:bg-gray-700"></div>
-                <div class="cursor-pointer" (click)="router.navigate(['/products'])">
-                  <p class="text-xl font-bold text-gray-900 dark:text-white">{{ wishlistCount() }}</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">Wishlist</p>
+                <div class="w-px bg-slate-200 dark:bg-slate-700"></div>
+                <div class="cursor-pointer group" (click)="router.navigate(['/orders'])">
+                  <p class="text-lg font-bold text-slate-900 dark:text-white group-hover:text-green-600 transition">Orders</p>
+                  <p class="text-xs text-slate-400">View all</p>
                 </div>
               </div>
             }
           </div>
           <!-- Quick actions -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
             @for (action of quickActions(); track action.label) {
               <button (click)="router.navigate(action.route)"
-                class="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20 border border-gray-100 dark:border-gray-700 hover:border-green-200 dark:hover:border-green-800 rounded-xl px-4 py-3 transition-all group">
+                class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 hover:bg-green-50 dark:hover:bg-green-950/30 border border-slate-100 dark:border-slate-700 hover:border-green-200 dark:hover:border-green-800 rounded-xl px-4 py-3 transition-all group">
                 <span class="text-xl group-hover:scale-110 transition-transform">{{ action.icon }}</span>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ action.label }}</span>
+                <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ action.label }}</span>
               </button>
             }
           </div>
@@ -389,6 +391,22 @@ export class Home implements OnInit {
   quickActions = computed(() => ROLE_ACTIONS[this.userRole()] ?? ROLE_ACTIONS['Customer']);
   cartCount = computed(() => this.cartService.cart()?.items?.length ?? 0);
   wishlistCount = computed(() => this.wishlistService.count);
+
+  initials = computed(() => {
+    const name = this.auth.getUserName() ?? '';
+    const parts = name.trim().split(' ');
+    return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase() || '?';
+  });
+
+  rolePillClass() {
+    const map: Record<string, string> = {
+      Admin: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400',
+      StoreManager: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+      DeliveryDriver: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+      Customer: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+    };
+    return map[this.userRole()] ?? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400';
+  }
 
   ngOnInit() {
     this.productService.getCategories().subscribe(c => { this.categories.set(c); this.categoriesLoading.set(false); });
