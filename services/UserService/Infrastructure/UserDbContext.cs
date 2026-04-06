@@ -19,6 +19,7 @@ public class UserDbContext(DbContextOptions<UserDbContext> options) : DbContext(
             e.Property(x => x.LastName).HasMaxLength(100);
             e.Property(x => x.PhoneNumber).HasMaxLength(20);
             e.Property(x => x.Role).HasMaxLength(50);
+            e.Property(x => x.RefreshToken).HasMaxLength(512);
         });
     }
 }

@@ -31,4 +31,10 @@ public class ManagedUser
 
     /// <summary>UTC timestamp when the account was created.</summary>
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>Refresh token — nulled out when user is deactivated or deleted to force re-login.</summary>
+    public string? RefreshToken { get; set; }
+
+    /// <summary>Refresh token expiry — nulled out alongside RefreshToken on deactivation/deletion.</summary>
+    public DateTime? RefreshTokenExpiry { get; set; }
 }
