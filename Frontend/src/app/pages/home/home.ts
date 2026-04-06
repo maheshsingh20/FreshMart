@@ -309,53 +309,81 @@ const ROLE_LABELS: Record<string, string> = {
     </section>
 
     <!-- Footer -->
-    <footer class="bg-slate-900 dark:bg-slate-950 text-slate-400 py-14 mt-4">
-      <div class="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-        <div class="col-span-2 md:col-span-1">
-          <div class="flex items-center gap-2.5 mb-4">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-              </svg>
+    <footer class="bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 mt-4">
+      <div class="max-w-5xl mx-auto px-6 pt-12 pb-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+
+          <!-- Brand -->
+          <div class="col-span-2 md:col-span-1">
+            <div class="flex items-center gap-2.5 mb-4">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/20">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+              </div>
+              <span class="font-bold text-slate-900 dark:text-white text-base">
+                Fresh<span class="text-green-600 dark:text-green-400">Mart</span>
+              </span>
             </div>
-            <span class="font-bold text-white text-base">Fresh<span class="text-green-400">Mart</span></span>
+            <p class="text-sm leading-relaxed text-slate-500 dark:text-slate-400 max-w-[200px]">
+              Your neighbourhood grocery store, online. Fresh, fast, affordable.
+            </p>
           </div>
-          <p class="text-sm leading-relaxed text-slate-400">Your neighbourhood grocery store, online. Fresh, fast, affordable.</p>
+
+          <!-- Shop -->
+          <div>
+            <p class="text-slate-900 dark:text-white font-semibold text-sm mb-4">Shop</p>
+            <ul class="space-y-2.5 text-sm text-slate-500 dark:text-slate-400">
+              <li>
+                <button (click)="router.navigate(['/products'])"
+                  class="hover:text-green-600 dark:hover:text-green-400 transition">All Products</button>
+              </li>
+              @for (cat of categories().slice(0, 4); track cat.id) {
+                <li>
+                  <button (click)="browseCategory(cat.id)"
+                    class="hover:text-green-600 dark:hover:text-green-400 transition">{{ cat.name }}</button>
+                </li>
+              }
+            </ul>
+          </div>
+
+          <!-- Account -->
+          <div>
+            <p class="text-slate-900 dark:text-white font-semibold text-sm mb-4">Account</p>
+            <ul class="space-y-2.5 text-sm text-slate-500 dark:text-slate-400">
+              @if (auth.isAuthenticated()) {
+                <li><button (click)="router.navigate(['/orders'])" class="hover:text-green-600 dark:hover:text-green-400 transition">My Orders</button></li>
+                <li><button (click)="router.navigate(['/cart'])" class="hover:text-green-600 dark:hover:text-green-400 transition">My Cart</button></li>
+                <li><button (click)="router.navigate(['/profile'])" class="hover:text-green-600 dark:hover:text-green-400 transition">Profile</button></li>
+              } @else {
+                <li><button (click)="router.navigate(['/auth/login'])" class="hover:text-green-600 dark:hover:text-green-400 transition">Sign In</button></li>
+                <li><button (click)="router.navigate(['/auth/register'])" class="hover:text-green-600 dark:hover:text-green-400 transition">Register</button></li>
+              }
+            </ul>
+          </div>
+
+          <!-- Support -->
+          <div>
+            <p class="text-slate-900 dark:text-white font-semibold text-sm mb-4">Support</p>
+            <ul class="space-y-2.5 text-sm text-slate-500 dark:text-slate-400">
+              <li class="flex items-center gap-2">
+                <span class="text-green-600 dark:text-green-400 text-xs">&#x260E;</span> 1-800-FRESH
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-green-600 dark:text-green-400 text-xs">&#x2709;</span> help&#64;freshmart.com
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-green-600 dark:text-green-400 text-xs">&#x23F0;</span> 24/7 Support
+              </li>
+            </ul>
+          </div>
         </div>
-        <div>
-          <p class="text-white font-semibold text-sm mb-4">Shop</p>
-          <ul class="space-y-2.5 text-sm">
-            <li><button (click)="router.navigate(['/products'])" class="hover:text-white transition">All Products</button></li>
-            @for (cat of categories().slice(0, 4); track cat.id) {
-              <li><button (click)="browseCategory(cat.id)" class="hover:text-white transition">{{ cat.name }}</button></li>
-            }
-          </ul>
+
+        <!-- Bottom bar -->
+        <div class="border-t border-slate-200 dark:border-slate-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500">
+          <p>&#169; 2026 FreshMart. All rights reserved.</p>
+          <p>Built with &#x2764;&#xFE0F; for fresh groceries</p>
         </div>
-        <div>
-          <p class="text-white font-semibold text-sm mb-4">Account</p>
-          <ul class="space-y-2.5 text-sm">
-            @if (auth.isAuthenticated()) {
-              <li><button (click)="router.navigate(['/orders'])" class="hover:text-white transition">My Orders</button></li>
-              <li><button (click)="router.navigate(['/cart'])" class="hover:text-white transition">My Cart</button></li>
-              <li><button (click)="router.navigate(['/profile'])" class="hover:text-white transition">Profile</button></li>
-            } @else {
-              <li><button (click)="router.navigate(['/auth/login'])" class="hover:text-white transition">Sign In</button></li>
-              <li><button (click)="router.navigate(['/auth/register'])" class="hover:text-white transition">Register</button></li>
-            }
-          </ul>
-        </div>
-        <div>
-          <p class="text-white font-semibold text-sm mb-4">Support</p>
-          <ul class="space-y-2.5 text-sm">
-            <li class="flex items-center gap-2"><span class="text-green-400">&#x260E;</span> 1-800-FRESH</li>
-            <li class="flex items-center gap-2"><span class="text-green-400">&#x2709;</span> help&#64;freshmart.com</li>
-            <li class="flex items-center gap-2"><span class="text-green-400">&#x23F0;</span> 24/7 Support</li>
-          </ul>
-        </div>
-      </div>
-      <div class="max-w-5xl mx-auto px-6 border-t border-slate-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-        <p>&#169; 2026 FreshMart. All rights reserved.</p>
-        <p>Built with &#x2764;&#xFE0F; for fresh groceries</p>
       </div>
     </footer>
   `
