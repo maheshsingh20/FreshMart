@@ -216,7 +216,17 @@ print('Environment files updated')
                 withCredentials([file(credentialsId: 'grocery-env-file', variable: 'ENV_FILE')]) {
                     sh '''
                         cp $ENV_FILE infrastructure/.env
-                        docker compose -f infrastructure/docker-compose.yml up -d
+
+                        # Fix network label mismatch — recreate with proper Compose labels
+                        docker network disconnect infrastructure_grocery-net jenkins || true
+                        docker network rm infrastructure_grocery-net || true
+                        docker network create \
+                            --label com.docker.compose.network=grocery-net \
+                            --label com.docker.compose.project=infrastructure \
+                            infrastructure_grocery-net || true
+                        docker network connect infrastructure_grocery-net jenkins || true
+
+                        docker compose -f infrastructure/docker-compose.yml up -d --no-build --pull never
                     '''
                 }
             }
