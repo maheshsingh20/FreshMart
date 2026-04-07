@@ -34,6 +34,7 @@
 networks:
   grocery-net:
     driver: bridge
+    name: infrastructure_grocery-net
 
 volumes:
   # Data volumes — NEVER delete these manually with `down -v`
