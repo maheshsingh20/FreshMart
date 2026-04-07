@@ -184,6 +184,10 @@ print('Environment files updated')
         stage('Fix Docker Socket') {
             steps {
                 sh 'chmod 666 /var/run/docker.sock || true'
+                // Login to Docker Hub to avoid anonymous pull rate limits (100/6h → 200/6h)
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin || true'
+                }
             }
         }
 
