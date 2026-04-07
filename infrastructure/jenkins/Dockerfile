@@ -11,6 +11,7 @@ RUN apt-get update -qq && apt-get install -y -qq \
     gnupg \
     lsb-release \
     libicu-dev \
+    wget \
     sudo \
     && curl -fsSL https://download.docker.com/linux/debian/gpg \
         | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
@@ -27,8 +28,14 @@ RUN echo "jenkins ALL=(root) NOPASSWD: /bin/chmod 666 /var/run/docker.sock" \
     >> /etc/sudoers.d/jenkins-docker \
     && chmod 0440 /etc/sudoers.d/jenkins-docker
 
-# Install .NET 10 SDK
-RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+# Install .NET 10 SDK — retry up to 3 times in case of transient network errors
+RUN for i in 1 2 3; do \
+      curl -fsSL --retry 5 --retry-delay 5 \
+        https://dot.net/v1/dotnet-install.sh \
+        -o /tmp/dotnet-install.sh && break; \
+      echo "Attempt $i failed, retrying..."; \
+      sleep 10; \
+    done \
     && chmod +x /tmp/dotnet-install.sh \
     && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
     && ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet \
