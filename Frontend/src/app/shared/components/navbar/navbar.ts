@@ -11,10 +11,11 @@ import { NotificationService } from '../../../core/services/notification.service
   selector: 'app-navbar',
   imports: [RouterLink, RouterLinkActive, DatePipe],
   template: `
-    <nav class="sticky top-0 z-50 border-b border-slate-200/60 dark:border-slate-800/60"
-      style="background:rgba(248,250,252,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)">
-      <div class="dark:hidden absolute inset-0 pointer-events-none"
-        style="background:rgba(255,255,255,0.7)"></div>
+    <nav class="sticky top-0 z-50
+      bg-white/90 dark:bg-slate-900/90
+      backdrop-blur-xl
+      border-b border-slate-200 dark:border-slate-800
+      shadow-sm dark:shadow-slate-900/50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4 relative">
 
         <!-- Logo -->
@@ -121,10 +122,8 @@ import { NotificationService } from '../../../core/services/notification.service
               </button>
 
               @if (notifOpen()) {
-                <div class="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/50 z-50 overflow-hidden border border-slate-200/60 dark:border-slate-700/60"
-                  style="background:rgba(255,255,255,0.95);backdrop-filter:blur(20px)">
-                  <div class="dark:hidden absolute inset-0 pointer-events-none rounded-2xl" style="background:rgba(255,255,255,0.9)"></div>
-                  <div class="relative dark:bg-slate-900/95">
+                <div class="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/50 z-50 overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                  <div class="relative">
                     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                       <div class="flex items-center gap-2">
                         <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Notifications</p>
@@ -192,10 +191,8 @@ import { NotificationService } from '../../../core/services/notification.service
               </button>
 
               @if (menuOpen()) {
-                <div class="absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/50 z-50 overflow-hidden border border-slate-200/60 dark:border-slate-700/60"
-                  style="background:rgba(255,255,255,0.97);backdrop-filter:blur(20px)">
-                  <div class="dark:hidden absolute inset-0 pointer-events-none rounded-2xl" style="background:rgba(255,255,255,0.95)"></div>
-                  <div class="relative dark:bg-slate-900/97">
+                <div class="absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/50 z-50 overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                  <div class="relative">
                     <div class="px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
                       <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ userName() }}</p>
                       <span class="text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-block" [class]="rolePillClass()">{{ role() ?? 'Customer' }}</span>
@@ -251,7 +248,7 @@ import { NotificationService } from '../../../core/services/notification.service
 
       <!-- Mobile menu -->
       @if (mobileOpen()) {
-        <div class="md:hidden border-t border-slate-200/60 dark:border-slate-800/60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-4 py-3 space-y-0.5">
+        <div class="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 space-y-0.5">
           @if (!role() || role() === 'Customer') {
             <a routerLink="/products" (click)="mobileOpen.set(false)" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
               <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
