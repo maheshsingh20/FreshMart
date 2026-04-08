@@ -159,24 +159,9 @@ JSONEOF
         // ── 5. Build Angular Frontend ─────────────────────────────────────────
         stage('Build Frontend') {
             steps {
-                sh '''
-                    RAZORPAY_KEY=$(grep "^RAZORPAY_KEY_ID=" infrastructure/.env | cut -d= -f2 | tr -d '\\r\\n ')
-                    GOOGLE_CLIENT_ID=$(grep "^GOOGLE_CLIENT_ID=" infrastructure/.env | cut -d= -f2 | tr -d '\\r\\n ')
-                    python3 -c "
-razorpay = '${RAZORPAY_KEY}'
-google = '${GOOGLE_CLIENT_ID}'
-for f in ['Frontend/src/environments/environment.ts','Frontend/src/environments/environment.prod.ts']:
-    c = open(f).read()
-    c = c.replace('RAZORPAY_KEY_PLACEHOLDER', razorpay)
-    c = c.replace('GOOGLE_CLIENT_ID_PLACEHOLDER', google)
-    open(f,'w').write(c)
-print('Environment files updated')
-"
-                '''
-                dir('Frontend') {
-                    sh 'npm ci --prefer-offline'
-                    sh 'npm run build -- --configuration production'
-                }
+                // Frontend is built inside Docker via --build-arg in dockerBuildFrontend()
+                // No need to modify source files here — Dockerfile handles placeholder replacement
+                echo "Frontend will be built in Docker Build stage with real keys injected via --build-arg"
             }
         }
 
@@ -235,22 +220,9 @@ print('Environment files updated')
 
     post {
         always {
-            // Clean up injected secret files so they don't linger on the agent
             sh '''
                 rm -f infrastructure/.env .env
                 rm -f services/NotificationService/appsettings.Development.json
-                # Restore placeholder values in frontend env files
-                sed -i "s|rzp_test_[A-Za-z0-9]*|RAZORPAY_KEY_PLACEHOLDER|g" Frontend/src/environments/environment.ts || true
-                sed -i "s|rzp_test_[A-Za-z0-9]*|RAZORPAY_KEY_PLACEHOLDER|g" Frontend/src/environments/environment.prod.ts || true
-                python3 -c "
-import re
-for f in ['Frontend/src/environments/environment.ts','Frontend/src/environments/environment.prod.ts']:
-    try:
-        content = open(f).read()
-        content = re.sub(r'[0-9]+-[a-z0-9]+\\.apps\\.googleusercontent\\.com', 'GOOGLE_CLIENT_ID_PLACEHOLDER', content)
-        open(f,'w').write(content)
-    except: pass
-" || true
             '''
             cleanWs()
         }
