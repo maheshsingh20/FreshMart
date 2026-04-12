@@ -7,6 +7,13 @@ using SharedKernel.Events;
 
 namespace OrderService.Application.Commands;
 
+/// <summary>
+/// Command that encapsulates everything needed to place a new order.
+/// Carries the customer identity, delivery destination, line items, and optional
+/// customer contact details used to personalise notification emails.
+/// Implements <see cref="ICommand{Guid}"/> so MediatR routes it to
+/// <see cref="CreateOrderHandler"/> and returns the new order's ID on success.
+/// </summary>
 public record CreateOrderCommand(
     Guid CustomerId,
     string DeliveryAddress,
@@ -15,8 +22,18 @@ public record CreateOrderCommand(
     string CustomerEmail = "",
     string CustomerFirstName = "") : ICommand<Guid>;
 
+/// <summary>
+/// A single line item within a <see cref="CreateOrderCommand"/>.
+/// Captures the product snapshot at the time of ordering so the order record
+/// remains accurate even if the product's name or price changes later.
+/// </summary>
 public record OrderItemRequest(Guid ProductId, string ProductName, int Quantity, decimal UnitPrice);
 
+/// <summary>
+/// FluentValidation rules for <see cref="CreateOrderCommand"/>.
+/// Ensures the command is structurally valid before the handler performs any
+/// I/O, providing fast, descriptive error messages to the API caller.
+/// </summary>
 public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
 {
     public CreateOrderValidator()
@@ -32,6 +49,20 @@ public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
     }
 }
 
+/// <summary>
+/// MediatR command handler that orchestrates order creation.
+/// The handler performs three sequential operations:
+/// <list type="number">
+///   <item>Stock validation — calls ProductService to confirm each item is available.</item>
+///   <item>Order persistence — creates the domain <see cref="Order"/> aggregate and saves it.</item>
+///   <item>Stock deduction — calls ProductService to atomically reduce inventory.</item>
+/// </list>
+/// Stock validation failures return a <see cref="Result{T}"/> failure so the API
+/// can return a 400 with a user-friendly message. ProductService unavailability is
+/// treated as a soft failure (logged, not blocking) to maintain resilience.
+/// An <see cref="OrderCreatedEvent"/> is published after persistence to trigger
+/// downstream workflows (notifications, payment saga).
+/// </summary>
 public class CreateOrderHandler(
     IOrderRepository repo,
     IEventPublisher events,
@@ -40,6 +71,17 @@ public class CreateOrderHandler(
     ILogger<CreateOrderHandler> logger)
     : ICommandHandler<CreateOrderCommand, Guid>
 {
+    /// <summary>
+    /// Executes the order creation workflow: validate stock → persist order →
+    /// deduct stock → publish domain event.
+    /// </summary>
+    /// <param name="cmd">The validated create-order command.</param>
+    /// <param name="ct">Cancellation token propagated from the HTTP request.</param>
+    /// <returns>
+    /// <see cref="Result{Guid}.Success"/> containing the new order ID, or
+    /// <see cref="Result{Guid}.Failure"/> with a descriptive message if stock
+    /// is insufficient or a product is not found.
+    /// </returns>
     public async Task<Result<Guid>> Handle(CreateOrderCommand cmd, CancellationToken ct)
     {
         // Validate stock availability before creating the order
@@ -102,5 +144,9 @@ public class CreateOrderHandler(
     }
 }
 
-// Minimal DTO to read stock from ProductService
+/// <summary>
+/// Minimal DTO used to deserialise the stock quantity from a ProductService response.
+/// Declared as a file-scoped type to keep it private to this compilation unit —
+/// it is an implementation detail of the handler, not a shared contract.
+/// </summary>
 file record ProductStockDto(int StockQuantity);

@@ -14,13 +14,25 @@ namespace PaymentService.Application.Commands;
 // Step 2 — VerifyPayment: verifies HMAC signature, marks payment complete
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Step 1: Create a Razorpay order and return the order id + key to the frontend
+/// <summary>
+/// Command for Step 1 of the Razorpay payment flow.
+/// Instructs the system to create a Razorpay order on the Razorpay platform
+/// and persist a local payment record in the Pending state.
+/// The response carries the Razorpay order ID and public key that the frontend
+/// needs to open the Razorpay checkout modal.
+/// </summary>
 public record ProcessPaymentCommand(
     Guid OrderId,
     Guid CustomerId,
     decimal Amount,
     DomainPaymentMethod Method) : ICommand<ProcessPaymentResponse>;
 
+/// <summary>
+/// Response returned after successfully creating a Razorpay order.
+/// The frontend uses <c>RazorpayOrderId</c>, <c>AmountPaise</c>, <c>Currency</c>,
+/// and <c>KeyId</c> to initialise the Razorpay checkout SDK.
+/// <c>PaymentId</c> is the internal record ID used for subsequent operations.
+/// </summary>
 public record ProcessPaymentResponse(
     Guid PaymentId,
     string RazorpayOrderId,
@@ -28,6 +40,10 @@ public record ProcessPaymentResponse(
     string Currency,
     string KeyId);
 
+/// <summary>
+/// FluentValidation rules for <see cref="ProcessPaymentCommand"/>.
+/// Ensures the command is structurally valid before any external API calls are made.
+/// </summary>
 public class ProcessPaymentValidator : AbstractValidator<ProcessPaymentCommand>
 {
     public ProcessPaymentValidator()
@@ -38,11 +54,24 @@ public class ProcessPaymentValidator : AbstractValidator<ProcessPaymentCommand>
     }
 }
 
+/// <summary>
+/// Handles <see cref="ProcessPaymentCommand"/> by creating a local payment record
+/// and then calling the Razorpay API to create a corresponding order.
+/// If the Razorpay call fails, the local record is marked as failed and a
+/// <see cref="Result{T}.Failure"/> is returned so the caller can surface the error.
+/// The two-step approach (persist first, then call Razorpay) ensures we always
+/// have a local record even if the external call fails, enabling reconciliation.
+/// </summary>
 public class ProcessPaymentHandler(
     IPaymentRepository repo,
     IRazorpayPaymentService razorpay,
     IConfiguration config) : ICommandHandler<ProcessPaymentCommand, ProcessPaymentResponse>
 {
+    /// <summary>
+    /// Creates a local <see cref="Payment"/> aggregate in the Pending state,
+    /// calls Razorpay to create the order, links the Razorpay order ID to the
+    /// local record, and returns the data the frontend needs to open the checkout modal.
+    /// </summary>
     public async Task<Result<ProcessPaymentResponse>> Handle(ProcessPaymentCommand cmd, CancellationToken ct)
     {
         var payment = Payment.Create(cmd.OrderId, cmd.CustomerId, cmd.Amount, cmd.Method);
@@ -70,19 +99,40 @@ public class ProcessPaymentHandler(
     }
 }
 
-// Step 2: Verify the signature after frontend completes payment
+/// <summary>
+/// Command for Step 2 of the Razorpay payment flow.
+/// Carries the three values returned by the Razorpay frontend SDK after the
+/// customer completes payment: the Razorpay order ID, the Razorpay payment ID,
+/// and the HMAC-SHA256 signature that proves the callback was not tampered with.
+/// </summary>
 public record VerifyPaymentCommand(
     string RazorpayOrderId,
     string RazorpayPaymentId,
     string Signature) : ICommand<VerifyPaymentResponse>;
 
+/// <summary>
+/// Response returned after successful payment verification.
+/// Carries the internal payment ID and the new status string so the caller
+/// can update the order record accordingly.
+/// </summary>
 public record VerifyPaymentResponse(Guid PaymentId, string Status);
 
+/// <summary>
+/// Handles <see cref="VerifyPaymentCommand"/> by cryptographically verifying the
+/// Razorpay HMAC-SHA256 signature. If valid, the payment is marked as Completed
+/// and the Razorpay payment ID is stored for future refund operations.
+/// If invalid, the payment is marked as Failed and a <see cref="PaymentFailedEvent"/>
+/// is published so downstream services (e.g. order service) can react.
+/// </summary>
 public class VerifyPaymentHandler(
     IPaymentRepository repo,
     IRazorpayPaymentService razorpay,
     IEventPublisher events) : ICommandHandler<VerifyPaymentCommand, VerifyPaymentResponse>
 {
+    /// <summary>
+    /// Looks up the payment record by Razorpay order ID, verifies the signature,
+    /// and transitions the payment to Completed or Failed accordingly.
+    /// </summary>
     public async Task<Result<VerifyPaymentResponse>> Handle(VerifyPaymentCommand cmd, CancellationToken ct)
     {
         var payment = await repo.GetByRazorpayOrderIdAsync(cmd.RazorpayOrderId, ct);
@@ -105,12 +155,23 @@ public class VerifyPaymentHandler(
     }
 }
 
-// Refund
+/// <summary>
+/// Command to issue a full refund for a completed payment.
+/// Carries the internal payment ID and the reason for the refund.
+/// Only completed payments can be refunded; the handler enforces this invariant.
+/// </summary>
 public record RefundPaymentCommand(Guid PaymentId, string Reason) : ICommand;
 
+/// <summary>
+/// Handles <see cref="RefundPaymentCommand"/> by calling the Razorpay refund API
+/// and transitioning the local payment record to the Refunded state.
+/// Validates that the payment exists and is in the Completed state before
+/// attempting the refund to prevent double-refunds.
+/// </summary>
 public class RefundPaymentHandler(IPaymentRepository repo, IRazorpayPaymentService razorpay)
     : ICommandHandler<RefundPaymentCommand>
 {
+    /// <inheritdoc/>
     public async Task<Result> Handle(RefundPaymentCommand cmd, CancellationToken ct)
     {
         var payment = await repo.GetByIdAsync(cmd.PaymentId, ct);
