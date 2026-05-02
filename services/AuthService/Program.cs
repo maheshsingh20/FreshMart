@@ -23,7 +23,7 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
-builder.Services.AddDbCon   text<AuthDbContext>(opt =>
+builder.Services.AddDbContext<AuthDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("AuthDb")));
 
 builder.Services.AddMediatR(cfg =>
