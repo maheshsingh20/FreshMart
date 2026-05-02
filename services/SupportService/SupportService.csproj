@@ -12,4 +12,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\shared\SharedKernel\SharedKernel.csproj" />
+  </ItemGroup>
 </Project>

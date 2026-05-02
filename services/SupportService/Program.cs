@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using SharedKernel.Middleware;
 using SupportService.Hubs;
 using SupportService.Infrastructure;
 using System.Text;
@@ -62,6 +63,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
     try { await scope.ServiceProvider.GetRequiredService<SupportDbContext>().Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
 
+app.UseGlobalExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseWebSockets();
 app.UseSwagger(); app.UseSwaggerUI();

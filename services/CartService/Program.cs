@@ -3,6 +3,7 @@ using CartService.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using SharedKernel.Middleware;
 using StackExchange.Redis;
 using System.Text;
 
@@ -57,6 +58,7 @@ builder.Services.AddCors(opt =>
 
 var app = builder.Build();
 
+app.UseGlobalExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseSwagger(); app.UseSwaggerUI();
 app.UseCors("AllowGateway");

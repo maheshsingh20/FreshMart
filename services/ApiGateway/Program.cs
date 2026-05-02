@@ -70,7 +70,6 @@ builder.Services.AddInMemoryRateLimiting();
 // YARP Reverse Proxy — routes loaded from appsettings.json ReverseProxy section
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
-
 builder.Services.AddHealthChecks();
 
 // CORS — allow the Angular frontend and direct API calls

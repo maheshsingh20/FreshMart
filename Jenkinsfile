@@ -211,6 +211,13 @@ JSONEOF
                             infrastructure_grocery-net || true
                         docker network connect infrastructure_grocery-net jenkins || true
 
+                        # Pull infrastructure base images (redis, rabbitmq, sqlserver)
+                        # These are NOT built by Jenkins — they come from Docker Hub
+                        # --pull never would fail if they don't exist locally after a clean wipe
+                        docker pull redis:7-alpine || true
+                        docker pull rabbitmq:3.13-management-alpine || true
+                        docker pull mcr.microsoft.com/mssql/server:2022-latest || true
+
                         docker compose -f infrastructure/docker-compose.yml up -d --no-build --pull never
                     '''
                 }

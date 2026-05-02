@@ -5,6 +5,7 @@ using NotificationService.Hubs;
 using NotificationService.Infrastructure;
 using Serilog;
 using SharedKernel.Messaging;
+using SharedKernel.Middleware;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,6 +66,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
     try { await scope.ServiceProvider.GetRequiredService<NotificationDbContext>().Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
 
+app.UseGlobalExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseSwagger(); app.UseSwaggerUI();
 app.UseCors("AllowGateway");
@@ -74,4 +76,3 @@ app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHealthChecks("/health");
 app.Run();
-

@@ -4,11 +4,14 @@ using AuthService.Infrastructure;
 using AuthService.Infrastructure.Persistence;
 using AuthService.Infrastructure.Services;
 using FluentValidation;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using SharedKernel.Behaviours;
 using SharedKernel.Messaging;
+using SharedKernel.Middleware;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,10 +23,14 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
-builder.Services.AddDbContext<AuthDbContext>(opt =>
+builder.Services.AddDbCon   text<AuthDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("AuthDb")));
 
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+    cfg.AddOpenBehavior(typeof(ValidationBehaviour<,>));
+});
 builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -77,6 +84,7 @@ using (var scope = app.Services.CreateScope())
     await AuthDbSeeder.SeedAsync(db, scope.ServiceProvider.GetRequiredService<IPasswordHasher>());
 }
 
+app.UseGlobalExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseSwagger(); app.UseSwaggerUI();
 app.UseCors("AllowGateway");

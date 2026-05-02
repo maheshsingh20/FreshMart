@@ -1,7 +1,5 @@
 using SharedKernel.Domain;
-
 namespace ProductService.Domain;
-
 public class Product : AggregateRoot
 {
     public string Name { get; private set; } = default!;

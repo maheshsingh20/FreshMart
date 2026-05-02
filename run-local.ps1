@@ -61,7 +61,11 @@ try {
         }
         Start-Sleep -Seconds 2
     }
-} finally {
+} 
+catch{
+    Write-Host "Stopping services..." -ForegroundColor Red
+}
+finally {
     Write-Host "Stopping all services..." -ForegroundColor Red
     $jobs | Stop-Job
     $jobs | Remove-Job

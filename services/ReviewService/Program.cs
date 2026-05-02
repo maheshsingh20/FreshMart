@@ -5,6 +5,7 @@ using ReviewService.Application.Commands;
 using ReviewService.Application.Queries;
 using ReviewService.Infrastructure;
 using Serilog;
+using SharedKernel.Middleware;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +52,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
     try { await scope.ServiceProvider.GetRequiredService<ReviewDbContext>().Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
 
+app.UseGlobalExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseSwagger(); app.UseSwaggerUI();
 app.UseCors("AllowGateway");

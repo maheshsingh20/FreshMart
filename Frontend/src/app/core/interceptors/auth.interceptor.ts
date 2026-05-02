@@ -9,7 +9,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   const platformId = inject(PLATFORM_ID);
-
   // Only attach token in browser — localStorage is unavailable on SSR
   if (isPlatformBrowser(platformId)) {
     const token = auth.getAccessToken();
@@ -17,7 +16,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       req = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
     }
   }
-
   return next(req).pipe(
     catchError((err: HttpErrorResponse) => {
       if (err.status === 401 && isPlatformBrowser(platformId)) {

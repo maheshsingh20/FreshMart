@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -5,7 +6,9 @@ using OrderService.Domain;
 using OrderService.Infrastructure;
 using OrderService.Infrastructure.Persistence;
 using Serilog;
+using SharedKernel.Behaviours;
 using SharedKernel.Messaging;
+using SharedKernel.Middleware;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,7 +26,11 @@ builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<NotificationRelay>();
 
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+    cfg.AddOpenBehavior(typeof(ValidationBehaviour<,>));
+});
 
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -60,6 +67,7 @@ using (var scope = app.Services.CreateScope())
     try { await db.Database.EnsureCreatedAsync(); } catch { /* DB already exists */ }
 }
 
+app.UseGlobalExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseSwagger(); app.UseSwaggerUI();
 app.UseCors("AllowGateway");

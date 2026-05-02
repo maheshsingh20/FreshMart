@@ -1,9 +1,7 @@
 using CartService.Domain;
 using Newtonsoft.Json;
 using StackExchange.Redis;
-
 namespace CartService.Infrastructure;
-
 /// <summary>
 /// Persistence contract for shopping carts.
 /// Implementations must be thread-safe as multiple requests for the same customer can arrive concurrently.
@@ -12,10 +10,8 @@ public interface ICartRepository
 {
     /// <summary>Retrieves the cart for a customer, or <c>null</c> if none exists.</summary>
     Task<Cart?> GetAsync(Guid customerId, CancellationToken ct = default);
-
     /// <summary>Persists (creates or overwrites) the cart for a customer.</summary>
     Task SaveAsync(Cart cart, CancellationToken ct = default);
-
     /// <summary>Deletes the cart for a customer (called after a successful order).</summary>
     Task DeleteAsync(Guid customerId, CancellationToken ct = default);
 }
@@ -54,7 +50,7 @@ public class RedisCartRepository(IConnectionMultiplexer redis) : ICartRepository
     {
         var json = JsonConvert.SerializeObject(cart);
         try
-        {
+        { 
             var db = redis.GetDatabase();
             await db.StringSetAsync(Key(cart.CustomerId), json, Ttl);
         }

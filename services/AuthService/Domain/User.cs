@@ -207,7 +207,6 @@ public class User : AggregateRoot
     /// <summary>Convenience property combining first and last name for display purposes.</summary>
     public string FullName => $"{FirstName} {LastName}";
 }
-
 /// <summary>
 /// Domain event raised when a new user account is created (via email or Google).
 /// Consumed in-process by MediatR handlers and published to RabbitMQ for cross-service notification.

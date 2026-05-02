@@ -45,7 +45,6 @@ public class ProductsController(IProductRepository repo) : ControllerBase
         var (items, total) = await repo.SearchAsync(query, categoryId, minPrice, maxPrice, sortBy, page, pageSize, ct, brand);
         return Ok(new { items = items.Select(ToDto), total, page, pageSize });
     }
-
     /// <summary>
     /// Retrieves a single product by its unique identifier.
     /// Returns 404 if the product does not exist or has been deleted.

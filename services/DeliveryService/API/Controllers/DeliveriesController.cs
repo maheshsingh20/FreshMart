@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-
 namespace DeliveryService.API.Controllers;
-
 [ApiController]
 [Route("api/v1/deliveries")]
 [Authorize]
@@ -16,14 +14,12 @@ public class DeliveriesController(IDeliveryAppService svc, IDeliveryRepository r
     private Guid UserId => Guid.Parse(
         User.FindFirstValue(JwtRegisteredClaimNames.Sub)
         ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
     [HttpGet("order/{orderId:guid}")]
     public async Task<IActionResult> GetByOrder(Guid orderId, CancellationToken ct)
     {
         var d = await svc.GetByOrderIdAsync(orderId, ct);
         return d is null ? NotFound() : Ok(d);
     }
-
     [HttpGet("my")]
     [Authorize(Roles = "DeliveryDriver")]
     public async Task<IActionResult> GetMyDeliveries(CancellationToken ct)
@@ -31,7 +27,6 @@ public class DeliveriesController(IDeliveryAppService svc, IDeliveryRepository r
         var deliveries = await repo.GetByDriverAsync(UserId, ct);
         return Ok(deliveries.Select(MapDto));
     }
-
     [HttpGet("pending")]
     [Authorize(Roles = "Admin,StoreManager")]
     public async Task<IActionResult> GetPending(CancellationToken ct)
@@ -48,7 +43,6 @@ public class DeliveriesController(IDeliveryAppService svc, IDeliveryRepository r
         await repo.AddAsync(delivery, ct);
         return CreatedAtAction(nameof(GetByOrder), new { orderId = req.OrderId }, MapDto(delivery));
     }
-
     [HttpPost("{id:guid}/assign")]
     [Authorize(Roles = "Admin,StoreManager")]
     public async Task<IActionResult> AssignDriver(Guid id, AssignDriverRequest req, CancellationToken ct)
@@ -57,7 +51,6 @@ public class DeliveriesController(IDeliveryAppService svc, IDeliveryRepository r
         if (!result.IsSuccess) return BadRequest(new { result.Error });
         return NoContent();
     }
-
     [HttpPatch("{id:guid}/status")]
     [Authorize(Roles = "DeliveryDriver,Admin")]
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateStatusRequest req, CancellationToken ct)
@@ -66,7 +59,6 @@ public class DeliveriesController(IDeliveryAppService svc, IDeliveryRepository r
         if (!result.IsSuccess) return BadRequest(new { result.Error });
         return NoContent();
     }
-
     [HttpPatch("{id:guid}/location")]
     [Authorize(Roles = "DeliveryDriver")]
     public async Task<IActionResult> UpdateLocation(Guid id, UpdateLocationRequest req, CancellationToken ct)
@@ -74,14 +66,12 @@ public class DeliveriesController(IDeliveryAppService svc, IDeliveryRepository r
         await svc.UpdateLocationAsync(id, req.Lat, req.Lng, ct);
         return NoContent();
     }
-
     [HttpGet("slots")]
     public async Task<IActionResult> GetSlots([FromQuery] DateTime date, CancellationToken ct)
     {
         var slots = await svc.GetAvailableSlotsAsync(date, ct);
         return Ok(slots);
     }
-
     private static object MapDto(Delivery d) => new
     {
         d.Id, d.OrderId, d.DriverId, status = d.Status.ToString(),

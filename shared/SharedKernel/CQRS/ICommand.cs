@@ -27,9 +27,7 @@ public interface IQuery<TResponse> : IRequest<TResponse> { }
 // Each command/query has exactly one handler. MediatR resolves the correct handler at runtime.
 public interface ICommandHandler<TCommand> : IRequestHandler<TCommand, Result>
     where TCommand : ICommand { }
-
 public interface ICommandHandler<TCommand, TResponse> : IRequestHandler<TCommand, Result<TResponse>>
     where TCommand : ICommand<TResponse> { }
 public interface IQueryHandler<TQuery, TResponse> : IRequestHandler<TQuery, TResponse>
     where TQuery : IQuery<TResponse> { }
-
