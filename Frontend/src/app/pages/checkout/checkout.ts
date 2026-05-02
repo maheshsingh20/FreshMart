@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { CartService } from '../../core/services/cart.service';
 import { AddressService, Address, AddressRequest } from '../../core/services/address.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Coupon } from '../../core/models';
 import { environment } from '../../../environments/environment';
 
@@ -419,6 +420,7 @@ const INDIAN_STATES = [
 export class Checkout implements OnInit {
   private cartService = inject(CartService);
   private addressService = inject(AddressService);
+  private authService = inject(AuthService);
   private http = inject(HttpClient);
   private router = inject(Router);
 
@@ -603,8 +605,10 @@ export class Checkout implements OnInit {
     this.error.set('');
     const appliedCode = this.coupon()?.valid ? this.couponCode.toUpperCase() : undefined;
     this.http.post<any>(`${environment.apiUrl}/api/v1/orders/create-payment`, {
-      amount: this.finalTotal(), deliveryAddress: this.deliveryAddress,
-      notes: this.notes || null, couponCode: appliedCode ?? null
+      amount: this.finalTotal(),   // in INR — backend multiplies by 100 for Razorpay
+      deliveryAddress: this.deliveryAddress,
+      notes: this.notes || null,
+      couponCode: appliedCode ?? null
     }).subscribe({
       next: res => { this.loading.set(false); this.openRazorpay(res, appliedCode); },
       error: e => { this.error.set(e.error?.error ?? 'Failed to initiate payment'); this.loading.set(false); }
@@ -612,17 +616,65 @@ export class Checkout implements OnInit {
   }
 
   private openRazorpay(paymentData: any, couponCode?: string) {
+    // Extract user details from JWT for Razorpay prefill
+    const token = this.authService.getAccessToken();
+    let userEmail = '';
+    let userContact = '';
+    let userName = this.authService.getUserName() ?? '';
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        userEmail   = payload['email'] ?? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] ?? '';
+        userContact = payload['phoneNumber'] ?? payload['phone'] ?? '';
+      } catch { /* ignore */ }
+    }
+
     const options = {
-      key: environment.razorpayKey, amount: paymentData.amount, currency: paymentData.currency,
-      name: 'FreshMart', description: 'Grocery Order', order_id: paymentData.razorpayOrderId,
-      theme: { color: '#16a34a' },
-      handler: (response: any) => {
-        this.verifyPayment(response.razorpay_order_id, response.razorpay_payment_id, response.razorpay_signature, couponCode);
+      key:         environment.razorpayKey,
+      amount:      paymentData.amountPaise ?? Math.round(this.finalTotal() * 100),
+      currency:    paymentData.currency ?? 'INR',
+      name:        'FreshMart',
+      description: 'Grocery Order',
+      order_id:    paymentData.razorpayOrderId,
+      image:       'https://i.imgur.com/n5tjHFD.png',
+      theme:       { color: '#16a34a' },
+
+      // Prefill customer details — required for UPI and contact-based methods
+      prefill: {
+        name:    userName,
+        email:   userEmail,
+        contact: userContact || '9999999999',  // fallback so Razorpay doesn't block UPI
       },
-      modal: { ondismiss: () => this.error.set('Payment cancelled. Please try again.') }
+
+      // Enable all payment methods explicitly
+      config: {
+        display: {
+          blocks: {
+            utib: { name: 'Pay via UPI', instruments: [{ method: 'upi' }] },
+            other: { name: 'Other Methods', instruments: [{ method: 'card' }, { method: 'netbanking' }, { method: 'wallet' }] }
+          },
+          sequence: ['block.utib', 'block.other'],
+          preferences: { show_default_blocks: true }
+        }
+      },
+
+      handler: (response: any) => {
+        this.verifyPayment(
+          response.razorpay_order_id,
+          response.razorpay_payment_id,
+          response.razorpay_signature,
+          couponCode
+        );
+      },
+      modal: {
+        ondismiss: () => this.error.set('Payment cancelled. Please try again.')
+      }
     };
+
     const rzp = new (window as any).Razorpay(options);
-    rzp.on('payment.failed', (r: any) => this.error.set('Payment failed: ' + (r.error?.description ?? 'Unknown error')));
+    rzp.on('payment.failed', (r: any) =>
+      this.error.set('Payment failed: ' + (r.error?.description ?? 'Unknown error'))
+    );
     rzp.open();
   }
 
