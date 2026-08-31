@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProductService.Domain;
 using ProductService.Infrastructure.Persistence;
@@ -203,16 +203,28 @@ public class ProductsController(IProductRepository repo) : ControllerBase
     /// <summary>
     /// Atomically deducts a specified quantity from a product's stock.
     /// Called by OrderService after a successful order placement to reduce inventory.
-    /// Returns 400 if the requested quantity exceeds available stock, preventing
-    /// overselling. This endpoint is intentionally open (no role restriction) because
-    /// it is called service-to-service, not by end users.
+    /// Returns 400 if the requested quantity exceeds available stock, preventing overselling.
+    /// <para>
+    /// This endpoint is internal — it must only be called by trusted back-end services.
+    /// Access is enforced by requiring the <c>X-Internal-Key</c> header to match the
+    /// shared secret configured via <c>InternalApi__Key</c>. Requests with a missing or
+    /// incorrect key receive 401 Unauthorized.
+    /// </para>
     /// </summary>
     /// <param name="id">The product whose stock should be reduced.</param>
     /// <param name="req">The quantity to deduct.</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpPatch("{id:guid}/deduct-stock")]
-    public async Task<IActionResult> DeductStock(Guid id, [FromBody] DeductStockRequest req, CancellationToken ct)
+    public async Task<IActionResult> DeductStock(Guid id, [FromBody] DeductStockRequest req,
+        [FromServices] IConfiguration config, CancellationToken ct)
     {
+        // Internal-only endpoint: validate the shared secret sent by OrderService.
+        // External callers (including unauthenticated public requests) are rejected here.
+        var expectedKey = config["InternalApi:Key"];
+        var providedKey  = Request.Headers["X-Internal-Key"].ToString();
+        if (string.IsNullOrEmpty(expectedKey) || providedKey != expectedKey)
+            return Unauthorized(new { error = "Missing or invalid internal API key." });
+
         var p = await repo.GetByIdAsync(id, ct);
         if (p is null) return NotFound();
 

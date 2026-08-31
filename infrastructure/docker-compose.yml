@@ -1,4 +1,4 @@
-# ═══════════════════════════════════════════════════════════════════════════════
+﻿# ═══════════════════════════════════════════════════════════════════════════════
 # FreshMart — Docker Compose Stack
 # ═══════════════════════════════════════════════════════════════════════════════
 networks:
@@ -117,6 +117,7 @@ services:
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASS}
+      - InternalApi__Key=${INTERNAL_API_KEY}
     depends_on:
       sqlserver: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -170,6 +171,7 @@ services:
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASS}
+      - InternalApi__Key=${INTERNAL_API_KEY}
       - Services__PaymentService=http://payment-service:8080
       - Services__NotificationService=http://notification-service:8080
     depends_on:
