@@ -1,3 +1,4 @@
+﻿using System.Net.Http.Json;
 using FluentValidation;
 using OrderService.Domain;
 using SharedKernel.CQRS;
@@ -115,14 +116,21 @@ public class CreateOrderHandler(
 
         await repo.AddAsync(order, ct);
 
-        // Deduct stock from ProductService for each item
+        // Deduct stock from ProductService for each item.
+        // X-Internal-Key authenticates this service-to-service call so the deduct-stock
+        // endpoint cannot be abused by external callers who lack this shared secret.
+        var internalKey = config["InternalApi:Key"] ?? string.Empty;
         foreach (var item in cmd.Items)
         {
             try
             {
-                var response = await client.PatchAsJsonAsync(
-                    $"{productServiceUrl}/api/v1/products/{item.ProductId}/deduct-stock",
-                    new { quantity = item.Quantity }, ct);
+                using var deductRequest = new HttpRequestMessage(
+                    HttpMethod.Patch,
+                    $"{productServiceUrl}/api/v1/products/{item.ProductId}/deduct-stock");
+                deductRequest.Headers.TryAddWithoutValidation("X-Internal-Key", internalKey);
+                deductRequest.Content = JsonContent.Create(new { quantity = item.Quantity });
+
+                var response = await client.SendAsync(deductRequest, ct);
 
                 if (!response.IsSuccessStatusCode)
                     logger.LogWarning("Failed to deduct stock for product {ProductId}: {Status}",
@@ -133,6 +141,7 @@ public class CreateOrderHandler(
                 logger.LogError("Error deducting stock for product {ProductId}: {Message}", item.ProductId, ex.Message);
             }
         }
+
 
         // Publish OrderCreated event to trigger notification + payment saga
         await events.PublishAsync(new OrderCreatedEvent(
