@@ -2,7 +2,6 @@ using AuthService.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuthService.Infrastructure.Persistence;
-
 /// <summary>
 /// Entity Framework Core database context for the AuthService.
 /// Owns the <c>Users</c> and <c>Addresses</c> tables in the <c>GroceryAuth</c> database.

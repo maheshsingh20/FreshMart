@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace SharedKernel.Middleware;
-
 /// <summary>
 /// Catches any unhandled exception that escapes controllers/handlers and returns
 /// a consistent JSON error shape instead of leaking stack traces to the client.
